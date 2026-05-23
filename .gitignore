@@ -22,3 +22,11 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Postman local files
+*.postman_collection.json
+*.postman_environment.json
+*.postman.json
+BACKEND_API_CONT*
+DevPulse-Auth.postm*
+DevPulse.local.postma*
