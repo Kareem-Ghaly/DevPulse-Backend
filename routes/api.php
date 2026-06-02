@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\AdminUserApprovalController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProjectIdeaController;
+use App\Http\Controllers\ProjectInvitationController;
+use App\Http\Controllers\ProjectTeamController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,3 +38,16 @@ Route::prefix('profile')
         Route::put('supervisor/complete', [ProfileController::class, 'completeSupervisorProfile'])->middleware('role:Supervisor');
         Route::put('committee-member/complete', [ProfileController::class, 'completeCommitteeMemberProfile'])->middleware('role:CommitteeMember');
     });
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
+        'project-ideas' => 'projectIdea',
+    ])->middlewareFor('store', 'role:Student');
+    Route::post('project-ideas/{projectIdea}/publish', [ProjectIdeaController::class, 'publish']);
+    Route::get('project-ideas/{projectIdea}/matching/students', [ProjectIdeaController::class, 'matchingStudents']);
+    Route::post('project-ideas/{projectIdea}/invitations', [ProjectInvitationController::class, 'send']);
+    Route::get('my-invitations', [ProjectInvitationController::class, 'myInvitations']);
+    Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
+    Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
+    Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
+});
