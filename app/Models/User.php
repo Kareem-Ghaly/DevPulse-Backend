@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -48,5 +49,20 @@ class User extends Authenticatable
     public function committeeMemberProfile(): HasOne
     {
         return $this->hasOne(CommitteeMemberProfile::class);
+    }
+
+    public function projectIdeas(): HasMany
+    {
+        return $this->hasMany(ProjectIdea::class, 'owner_id');
+    }
+
+    public function projectInvitationsSent(): HasMany
+    {
+        return $this->hasMany(ProjectJoinRequest::class, 'sender_id');
+    }
+
+    public function projectInvitationsReceived(): HasMany
+    {
+        return $this->hasMany(ProjectJoinRequest::class, 'receiver_id');
     }
 }
