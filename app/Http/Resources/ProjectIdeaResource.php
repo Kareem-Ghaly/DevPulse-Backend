@@ -12,16 +12,21 @@ class ProjectIdeaResource extends JsonResource
         return [
             'id' => $this->id,
             'owner_id' => $this->owner_id,
-            'owner' => $this->whenLoaded('owner', fn (): array => [
-                'id' => $this->owner->id,
-                'name' => $this->owner->name,
-                'email' => $this->owner->email,
-            ]),
+           
             'title' => $this->title,
             'abstract' => $this->abstract,
             'description' => $this->description,
-            'team_size' => $this->team_size,
+            'tech_stack' => $this->tech_stack,
             'required_skills' => $this->required_skills,
+            'needed_roles' => $this->needed_roles,
+            'domain' => $this->domain,
+            'ai_keywords' => $this->ai_keywords,
+            'ai_summary' => $this->ai_summary,
+            'ai_analysis_status' => $this->ai_analysis_status,
+            'ai_error' => $this->ai_error,
+            'team_size' => $this->team_size,
+            'status' => $this->status,
+            'is_public' => $this->is_public,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
