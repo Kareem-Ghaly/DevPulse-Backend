@@ -17,6 +17,12 @@ use App\Repositories\ProjectTeamMemberRepository;
 use App\Repositories\ProjectTeamRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\ServiceProvider;
+use App\Interfaces\ProjectRepositoryInterface;
+use App\Interfaces\ProposalRepositoryInterface;
+use App\Interfaces\TaskRepositoryInterface;
+use App\Repositories\ProjectRepository;
+use App\Repositories\ProposalRepository;
+use App\Repositories\TaskRepository;
 
 class RepositoryServiceProvider extends ServiceProvider
 {
@@ -29,5 +35,8 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(ProjectJoinRequestRepositoryInterface::class, ProjectJoinRequestRepository::class);
         $this->app->bind(ProjectTeamRepositoryInterface::class, ProjectTeamRepository::class);
         $this->app->bind(ProjectTeamMemberRepositoryInterface::class, ProjectTeamMemberRepository::class);
+        $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
+        $this->app->bind(ProposalRepositoryInterface::class, ProposalRepository::class);
+        $this->app->bind(TaskRepositoryInterface::class, TaskRepository::class);
     }
 }

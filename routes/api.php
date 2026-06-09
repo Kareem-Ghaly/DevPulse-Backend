@@ -7,6 +7,7 @@ use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectTeamController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProjectController;
 
 Route::prefix('auth')->group(function (): void {
     Route::post('register/student', [AuthController::class, 'registerStudent']);
@@ -50,4 +51,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
     Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
     Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
+
+    Route::post('project-ideas/{projectIdea}/create-project', [ProjectController::class, 'createFromIdea'])
+        ->middleware('role:Student');
+
+    Route::get('projects/{project}', [ProjectController::class, 'show']);
 });
