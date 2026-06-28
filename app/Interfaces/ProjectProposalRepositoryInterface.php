@@ -8,6 +8,8 @@ interface ProjectProposalRepositoryInterface
 {
     public function all();
 
+    public function find(int $id): ?ProjectProposal;
+
     public function create(array $data): ProjectProposal;
 
     public function update(ProjectProposal $projectProposal, array $data): ProjectProposal;

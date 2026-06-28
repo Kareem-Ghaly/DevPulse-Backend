@@ -1,5 +1,5 @@
 <?php
-
+use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\AdminUserApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProjectIdeaController;
@@ -50,4 +50,19 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
     Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
     Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
+    Route::get('project-proposals', [ProjectProposalController::class, 'index']);
+
+Route::post('project-proposals', [ProjectProposalController::class, 'store'])
+    ->middleware('role:Student');
+
+Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
+
+Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
+    ->middleware('role:Student');
+
+Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
+    ->middleware('role:Student');
+
+Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy'])
+    ->middleware('role:Student');
 });

@@ -1,7 +1,8 @@
 <?php
 
 namespace App\Providers;
-
+use App\Interfaces\ProjectProposalRepositoryInterface;
+use App\Repositories\ProjectProposalRepository;
 use App\Interfaces\ProfileRepositoryInterface;
 use App\Interfaces\ProjectIdeaMatchRepositoryInterface;
 use App\Interfaces\ProjectIdeaRepositoryInterface;
@@ -29,5 +30,9 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(ProjectJoinRequestRepositoryInterface::class, ProjectJoinRequestRepository::class);
         $this->app->bind(ProjectTeamRepositoryInterface::class, ProjectTeamRepository::class);
         $this->app->bind(ProjectTeamMemberRepositoryInterface::class, ProjectTeamMemberRepository::class);
+        $this->app->bind(
+    ProjectProposalRepositoryInterface::class,
+    ProjectProposalRepository::class
+);
     }
 }
