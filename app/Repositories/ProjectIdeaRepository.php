@@ -8,6 +8,11 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
 {
+    public function all()
+    {
+        return ProjectIdea::all();
+    }
+
     public function create(array $data): ProjectIdea
     {
         $idea = ProjectIdea::query()->create($data);
@@ -91,5 +96,5 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
             ->latest()
             ->get();
     }
-
+    
 }

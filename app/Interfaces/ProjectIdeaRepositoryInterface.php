@@ -2,15 +2,15 @@
 
 namespace App\Interfaces;
 
-use App\Models\ProjectProposal;
+use App\Models\ProjectIdea;
 
-interface ProjectProposalRepositoryInterface
+interface ProjectIdeaRepositoryInterface
 {
     public function all();
 
-    public function create(array $data): ProjectProposal;
+    public function create(array $data): ProjectIdea;
 
-    public function update(ProjectProposal $projectProposal, array $data): ProjectProposal;
+    public function update(ProjectIdea $projectIdea, array $data): ProjectIdea;
 
-    public function delete(ProjectProposal $projectProposal): bool;
+    public function delete(ProjectIdea $projectIdea): bool;
 }
