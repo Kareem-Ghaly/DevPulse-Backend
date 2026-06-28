@@ -39,40 +39,31 @@ Route::prefix('profile')
         Route::put('committee-member/complete', [ProfileController::class, 'completeCommitteeMemberProfile'])->middleware('role:CommitteeMember');
     });
 Route::middleware('auth:sanctum')->group(function (): void {
-    Route::get('project-ideas', [ProjectIdeaController::class, 'index']);
+    Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
+        'project-ideas' => 'projectIdea',
+    ])->middlewareFor('store', 'role:Student');
+    Route::post('project-ideas/{projectIdea}/publish', [ProjectIdeaController::class, 'publish']);
+    Route::get('project-ideas/{projectIdea}/matching/students', [ProjectIdeaController::class, 'matchingStudents']);
+    Route::post('project-ideas/{projectIdea}/invitations', [ProjectInvitationController::class, 'send']);
+    Route::get('my-invitations', [ProjectInvitationController::class, 'myInvitations']);
+    Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
+    Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
+    Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
+    Route::get('project-proposals', [ProjectProposalController::class, 'index']);
+    
+    Route::get('/my-projects', [ProjectTeamController::class, 'myProjects']);
 
-    Route::post('project-ideas', [ProjectIdeaController::class, 'store'])
+    Route::post('project-proposals', [ProjectProposalController::class, 'store'])
         ->middleware('role:Student');
 
-    Route::get('project-ideas/{projectIdea}', [ProjectIdeaController::class, 'show']);
+    Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
 
-    Route::put('project-ideas/{projectIdea}', [ProjectIdeaController::class, 'update'])
+    Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
         ->middleware('role:Student');
 
-    Route::patch('project-ideas/{projectIdea}', [ProjectIdeaController::class, 'update'])
+    Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
         ->middleware('role:Student');
 
-    Route::delete('project-ideas/{projectIdea}', [ProjectIdeaController::class, 'destroy'])
+    Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy'])
         ->middleware('role:Student');
-
-    Route::post('project-ideas/{projectIdea}/publish', [ProjectIdeaController::class, 'publish'])
-        ->middleware('role:Student');
-
-    Route::get('project-ideas/{projectIdea}/matching/students', [ProjectIdeaController::class, 'matchingStudents'])
-        ->middleware('role:Student');
-
-    Route::post('project-ideas/{projectIdea}/invitations', [ProjectInvitationController::class, 'send'])
-        ->middleware('role:Student');
-
-    Route::get('my-invitations', [ProjectInvitationController::class, 'myInvitations'])
-        ->middleware('role:Student');
-
-    Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept'])
-        ->middleware('role:Student');
-
-    Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject'])
-        ->middleware('role:Student');
-
-    Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show'])
-        ->middleware('role:Student');
-});
+    });

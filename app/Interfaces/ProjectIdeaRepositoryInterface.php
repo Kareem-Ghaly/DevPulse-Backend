@@ -22,4 +22,6 @@ interface ProjectIdeaRepositoryInterface
     public function publish(ProjectIdea $idea): ProjectIdea;
 
     public function markTeamCompleted(ProjectIdea $idea): ProjectIdea;
+
+    public function getByOwnerId(int $ownerId); 
 }

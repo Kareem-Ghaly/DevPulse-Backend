@@ -86,4 +86,19 @@ class ProjectTeamService extends BaseService
 
         return $this->teams->findByProjectIdea($projectIdea->id) ?? $team;
     }
+
+    public function getStudentProjects(int $studentId): JsonResponse
+    {
+        $projects = $this->projectIdeas->getByOwnerId($studentId);
+
+        if ($projects->isEmpty()) {
+            return $this->successResponse([
+                'projects' => [],
+            ], 'You haven\'t created any project ideas yet.');
+        }
+
+        return $this->successResponse([
+            'projects' => $projects, 
+        ], 'Student project ideas retrieved successfully.');
+    }
 }

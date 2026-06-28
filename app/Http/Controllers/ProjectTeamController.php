@@ -1,8 +1,10 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use App\Services\ProjectTeamService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+
 
 class ProjectTeamController extends Controller
 {
@@ -12,4 +14,10 @@ class ProjectTeamController extends Controller
     {
         return $this->teams->show($projectIdea);
     }
+
+    public function myProjects(Request $request): JsonResponse
+    {
+        return $this->teams->getStudentProjects($request->user()->id);
+    }
+
 }

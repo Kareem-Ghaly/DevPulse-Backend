@@ -83,4 +83,13 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
         return $idea->fresh(['owner']);
     }
 
+    public function getByOwnerId(int $ownerId)
+    {
+        return ProjectIdea::query()
+            ->with('owner')
+            ->where('owner_id', $ownerId)
+            ->latest()
+            ->get();
+    }
+
 }
