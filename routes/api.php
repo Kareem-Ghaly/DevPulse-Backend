@@ -2,10 +2,10 @@
 use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\AdminUserApprovalController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectIdeaController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectTeamController;
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -38,7 +38,6 @@ Route::prefix('profile')
         Route::put('supervisor/complete', [ProfileController::class, 'completeSupervisorProfile'])->middleware('role:Supervisor');
         Route::put('committee-member/complete', [ProfileController::class, 'completeCommitteeMemberProfile'])->middleware('role:CommitteeMember');
     });
-
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
         'project-ideas' => 'projectIdea',
@@ -51,18 +50,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
     Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
     Route::get('project-proposals', [ProjectProposalController::class, 'index']);
+    
+    Route::get('/my-projects', [ProjectTeamController::class, 'myProjects']);
 
-Route::post('project-proposals', [ProjectProposalController::class, 'store'])
-    ->middleware('role:Student');
+    Route::post('project-proposals', [ProjectProposalController::class, 'store'])
+        ->middleware('role:Student');
 
-Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
+    Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
 
-Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
-    ->middleware('role:Student');
+    Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
+        ->middleware('role:Student');
 
-Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
-    ->middleware('role:Student');
+    Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
+        ->middleware('role:Student');
 
-Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy'])
-    ->middleware('role:Student');
-});
+    Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy'])
+        ->middleware('role:Student');
+    });

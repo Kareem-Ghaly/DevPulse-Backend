@@ -13,7 +13,7 @@ class ProjectIdeaMatchResource extends JsonResource
             'id' => $this->id,
             'project_idea_id' => $this->project_idea_id,
             'student_id' => $this->student_id,
-           
+            'student' => new UserResource($this->whenLoaded('student')),
             'match_score' => (float) $this->match_score,
             'matched_skills' => $this->matched_skills,
             'missing_skills' => $this->missing_skills,
