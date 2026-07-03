@@ -16,4 +16,6 @@ interface ProjectIdeaMatchRepositoryInterface
     public function existsForStudent(int $projectIdeaId, int $studentId): bool;
 
     public function getMatchableStudentProfiles(int $ownerId, array $excludedUserIds = []): Collection;
+    
+    public function getMatchableSupervisorProfiles(string $department = null): Collection;
 }

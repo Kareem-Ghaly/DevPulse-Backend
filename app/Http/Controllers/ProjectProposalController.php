@@ -6,6 +6,7 @@ use App\Http\Requests\StoreProjectProposalRequest;
 use App\Http\Requests\UpdateProjectProposalRequest;
 use App\Models\ProjectProposal;
 use App\Services\ProjectProposalService;
+use Illuminate\Http\Request;
 
 class ProjectProposalController extends Controller
 {
@@ -34,5 +35,32 @@ class ProjectProposalController extends Controller
     public function destroy(ProjectProposal $projectProposal)
     {
         return $this->service->destroy($projectProposal);
+    }
+
+    public function submitToSupervisor(Request $request, ProjectProposal $projectProposal)
+    {
+        $validated = $request->validate([
+            'supervisor_id' => ['required', 'exists:users,id'],
+        ]);
+
+        return $this->service->submitToSupervisor($projectProposal, $validated);
+    }
+    public function supervisorIncoming(Request $request)
+    {
+        if (!auth()->user()->hasRole('Supervisor')) {
+            return response()->json(['message' => 'Access denied.'], 403);
+        }
+
+        return $this->service->getSupervisorIncomingProposals();
+    }
+
+    public function supervisorDecision(Request $request, ProjectProposal $projectProposal)
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:approved,rejected,changes_requested'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        return $this->service->handleDecision($projectProposal, $validated);
     }
 }

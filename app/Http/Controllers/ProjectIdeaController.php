@@ -48,4 +48,9 @@ class ProjectIdeaController extends Controller
     {
         return $this->matching->students($projectIdea);
     }
+
+    public function matchingSupervisors(int $projectIdea)
+    {
+        return $this->matching->supervisors($projectIdea);
+    }
 }

@@ -33,4 +33,13 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
     {
         return $projectProposal->delete();
     }
+
+    public function getForSupervisor(int $supervisorId): \Illuminate\Support\Collection
+    {
+        return \App\Models\ProjectProposal::query()
+            ->where('supervisor', $supervisorId)
+            ->whereIn('status', ['submitted', 'approved', 'rejected', 'changes_requested'])
+            ->orderByDesc('last_update')
+            ->get();
+    }
 }

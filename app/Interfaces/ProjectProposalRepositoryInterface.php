@@ -15,4 +15,6 @@ interface ProjectProposalRepositoryInterface
     public function update(ProjectProposal $projectProposal, array $data): ProjectProposal;
 
     public function delete(ProjectProposal $projectProposal): bool;
+
+    public function getForSupervisor(int $supervisorId): \Illuminate\Support\Collection;
 }

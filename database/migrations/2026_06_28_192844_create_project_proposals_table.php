@@ -38,7 +38,7 @@ return new class extends Migration
             $table->string('supervisor')->nullable();
             $table->longText('project_teams')->nullable();
 
-            $table->enum('status', ['draft', 'submitted'])->default('draft');
+            $table->enum('status', ['draft', 'submitted', 'approved', 'rejected', 'changes_requested'])->default('draft');
 
             $table->timestamp('last_update')->nullable();
 

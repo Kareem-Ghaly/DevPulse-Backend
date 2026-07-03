@@ -20,6 +20,8 @@ class CompleteSupervisorProfileRequest extends FormRequest
             'specialization' => ['required', 'string', 'max:255'],
             'office_hours' => ['nullable', 'string'],
             'bio' => ['nullable', 'string'],
+            'research_interests' => ['required', 'array'], 
+            'research_interests.*' => ['string'],
         ];
     }
 }

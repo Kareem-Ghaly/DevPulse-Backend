@@ -47,4 +47,12 @@ class ProjectIdeaMatchRepository implements ProjectIdeaMatchRepositoryInterface
             ->whereHas('user', fn ($query) => $query->role('Student'))
             ->get();
     }
+
+    public function getMatchableSupervisorProfiles(string $department = null): Collection
+    {
+        return \App\Models\SupervisorProfile::query()
+            ->with('user')
+            ->when($department, fn($query) => $query->where('department', $department))
+            ->get();
+    }
 }

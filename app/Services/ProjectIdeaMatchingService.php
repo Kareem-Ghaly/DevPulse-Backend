@@ -97,4 +97,77 @@ class ProjectIdeaMatchingService extends BaseService
             ->values()
             ->all();
     }
+
+    public function supervisors(int $projectIdeaId): JsonResponse
+{
+    $projectIdea = $this->projectIdeas->findById($projectIdeaId);
+
+    if (! $projectIdea) {
+        return $this->errorResponse('Project idea not found.', null, 404);
+    }
+
+    $requiredSkills = $this->trimSkills($projectIdea->required_skills ?? []);
+
+    if ($requiredSkills === []) {
+        return $this->errorResponse('Required skills are needed before matching supervisors.', null, 422);
+    }
+
+    $supervisors = $this->matchRepository->getMatchableSupervisorProfiles()
+        ->map(function (\App\Models\SupervisorProfile $profile) use ($requiredSkills): array {
+            $interests = $this->normalizeSkills($profile->research_interests ?? []);
+            $matched = [];
+            $missing = [];
+
+            foreach ($requiredSkills as $skill) {
+                if (in_array(mb_strtolower($skill), $interests, true)) {
+                    $matched[] = $skill;
+                } else {
+                    $missing[] = $skill;
+                }
+            }
+
+            $percentage = round((count($matched) / count($requiredSkills)) * 100);
+
+            return [
+                'supervisor' => [
+                    'id' => $profile->user->id,
+                    'name' => $profile->full_name ?? $profile->user->name,
+                    'email' => $profile->user->email,
+                    'academic_title' => $profile->academic_title,
+                    'specialization' => $profile->specialization,
+                ],
+                'matched_interests' => $matched,
+                'missing_interests' => $missing,
+                'match_percentage' => $percentage,
+            ];
+        })
+        ->filter(fn($item) => $item['match_percentage'] > 0) 
+        
+        ->sortByDesc('match_percentage')
+        ->values();
+
+
+
+    $perPage = request()->get('per_page', 10);
+    $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+    $currentItems = $supervisors->slice(($currentPage - 1) * $perPage, $perPage)->all();
+
+    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $currentItems,
+        $supervisors->count(),
+        $perPage,
+        $currentPage,
+        ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
+    );
+
+    return $this->successResponse([
+        'data' => $paginated->items(),
+        'meta' => [
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'per_page' => $paginated->perPage(),
+            'total' => $paginated->total(),
+        ]
+    ], 'Supervisor matches retrieved successfully');
+}
 }

@@ -38,32 +38,37 @@ Route::prefix('profile')
         Route::put('supervisor/complete', [ProfileController::class, 'completeSupervisorProfile'])->middleware('role:Supervisor');
         Route::put('committee-member/complete', [ProfileController::class, 'completeCommitteeMemberProfile'])->middleware('role:CommitteeMember');
     });
+
 Route::middleware('auth:sanctum')->group(function (): void {
+    
     Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
         'project-ideas' => 'projectIdea',
     ])->middlewareFor('store', 'role:Student');
+    
     Route::post('project-ideas/{projectIdea}/publish', [ProjectIdeaController::class, 'publish']);
     Route::get('project-ideas/{projectIdea}/matching/students', [ProjectIdeaController::class, 'matchingStudents']);
+    Route::get('project-ideas/{projectIdea}/matching/supervisors', [ProjectIdeaController::class, 'matchingSupervisors']);
+    Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
+
     Route::post('project-ideas/{projectIdea}/invitations', [ProjectInvitationController::class, 'send']);
     Route::get('my-invitations', [ProjectInvitationController::class, 'myInvitations']);
     Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
     Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
-    Route::get('project-ideas/{projectIdea}/team', [ProjectTeamController::class, 'show']);
-    Route::get('project-proposals', [ProjectProposalController::class, 'index']);
-    
     Route::get('/my-projects', [ProjectTeamController::class, 'myProjects']);
 
-    Route::post('project-proposals', [ProjectProposalController::class, 'store'])
-        ->middleware('role:Student');
-
+    Route::get('project-proposals', [ProjectProposalController::class, 'index']);
     Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
 
-    Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
-        ->middleware('role:Student');
-
-    Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
-        ->middleware('role:Student');
-
-    Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy'])
-        ->middleware('role:Student');
+    Route::middleware('role:Student')->group(function (): void {
+        Route::post('project-proposals', [ProjectProposalController::class, 'store']);
+        Route::put('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update']);
+        Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update']);
+        Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy']);
+        Route::post('project-proposals/{projectProposal}/submit', [ProjectProposalController::class, 'submitToSupervisor']);
     });
+
+    Route::middleware('role:Supervisor')->group(function (): void {
+        Route::get('supervisor/project-proposals', [ProjectProposalController::class, 'supervisorIncoming']);
+        Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
+    });
+});
