@@ -1,10 +1,12 @@
 <?php
-use App\Http\Controllers\ProjectProposalController;
+
 use App\Http\Controllers\AdminUserApprovalController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CommitteeProjectProposalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectIdeaController;
 use App\Http\Controllers\ProjectInvitationController;
+use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\ProjectTeamController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,11 +42,10 @@ Route::prefix('profile')
     });
 
 Route::middleware('auth:sanctum')->group(function (): void {
-    
     Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
         'project-ideas' => 'projectIdea',
     ])->middlewareFor('store', 'role:Student');
-    
+
     Route::post('project-ideas/{projectIdea}/publish', [ProjectIdeaController::class, 'publish']);
     Route::get('project-ideas/{projectIdea}/matching/students', [ProjectIdeaController::class, 'matchingStudents']);
     Route::get('project-ideas/{projectIdea}/matching/supervisors', [ProjectIdeaController::class, 'matchingSupervisors']);
@@ -65,10 +66,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('project-proposals/{projectProposal}', [ProjectProposalController::class, 'update']);
         Route::delete('project-proposals/{projectProposal}', [ProjectProposalController::class, 'destroy']);
         Route::post('project-proposals/{projectProposal}/submit', [ProjectProposalController::class, 'submitToSupervisor']);
+        Route::post('project-proposals/{projectProposal}/submit-to-committee', [ProjectProposalController::class, 'submitToCommittee']);
     });
 
     Route::middleware('role:Supervisor')->group(function (): void {
         Route::get('supervisor/project-proposals', [ProjectProposalController::class, 'supervisorIncoming']);
         Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
+    });
+
+    Route::middleware('role:CommitteeMember')->group(function (): void {
+        Route::get('committee/project-proposals', [CommitteeProjectProposalController::class, 'index']);
+        Route::post('committee/project-proposals/{projectProposal}/decision', [CommitteeProjectProposalController::class, 'decision']);
     });
 });
