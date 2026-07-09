@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProjectProposalRequest;
+use App\Http\Requests\SupervisorDecisionRequest;
 use App\Http\Requests\UpdateProjectProposalRequest;
 use App\Models\ProjectProposal;
 use App\Services\ProjectProposalService;
@@ -45,22 +46,23 @@ class ProjectProposalController extends Controller
 
         return $this->service->submitToSupervisor($projectProposal, $validated);
     }
+
+    public function submitToCommittee(ProjectProposal $projectProposal)
+    {
+        return $this->service->submitToCommittee($projectProposal);
+    }
+
     public function supervisorIncoming(Request $request)
     {
-        if (!auth()->user()->hasRole('Supervisor')) {
+        if (! auth()->user()->hasRole('Supervisor')) {
             return response()->json(['message' => 'Access denied.'], 403);
         }
 
         return $this->service->getSupervisorIncomingProposals();
     }
 
-    public function supervisorDecision(Request $request, ProjectProposal $projectProposal)
+    public function supervisorDecision(SupervisorDecisionRequest $request, ProjectProposal $projectProposal)
     {
-        $validated = $request->validate([
-            'status' => ['required', 'string', 'in:approved,rejected,changes_requested'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        return $this->service->handleDecision($projectProposal, $validated);
+        return $this->service->handleDecision($projectProposal, $request->validated());
     }
 }
