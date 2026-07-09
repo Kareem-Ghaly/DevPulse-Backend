@@ -46,11 +46,13 @@ class ProjectProposalResource extends JsonResource
             'project_teams' => $this->project_teams,
 
             'status' => $this->status,
+            'supervisor_notes' => $this->supervisor_notes,
+            'supervisor_decided_at' => $this->supervisor_decided_at,
             'last_update' => $this->last_update,
 
             'team' => $this->whenLoaded('team'),
-        
             'last_updater' => $this->whenLoaded('lastUpdater'),
+            'committee_reviews' => $this->whenLoaded('committeeReviews'),
 
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Interfaces\ProjectProposalRepositoryInterface;
 use App\Models\ProjectProposal;
+use Illuminate\Support\Collection;
 
 class ProjectProposalRepository implements ProjectProposalRepositoryInterface
 {
@@ -34,11 +35,20 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
         return $projectProposal->delete();
     }
 
-    public function getForSupervisor(int $supervisorId): \Illuminate\Support\Collection
+    public function getForSupervisor(int $supervisorId): Collection
     {
-        return \App\Models\ProjectProposal::query()
+        return ProjectProposal::query()
             ->where('supervisor', $supervisorId)
-            ->whereIn('status', ['submitted', 'approved', 'rejected', 'changes_requested'])
+            ->where('status', 'submitted')
+            ->orderByDesc('last_update')
+            ->get();
+    }
+
+    public function getForCommittee(): Collection
+    {
+        return ProjectProposal::query()
+            ->with(['team', 'committeeReviews.committeeMember'])
+            ->where('status', 'submitted_to_committee')
             ->orderByDesc('last_update')
             ->get();
     }

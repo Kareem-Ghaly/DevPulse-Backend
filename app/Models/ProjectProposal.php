@@ -29,11 +29,14 @@ class ProjectProposal extends Model
         'supervisor',
         'project_teams',
         'status',
+        'supervisor_notes',
+        'supervisor_decided_at',
         'last_update',
     ];
 
     protected $casts = [
         'last_update' => 'datetime',
+        'supervisor_decided_at' => 'datetime',
     ];
 
     public function team()
@@ -41,9 +44,13 @@ class ProjectProposal extends Model
         return $this->belongsTo(ProjectTeam::class, 'project_team_id');
     }
 
-
     public function lastUpdater()
     {
         return $this->belongsTo(User::class, 'last_updated_by');
+    }
+
+    public function committeeReviews()
+    {
+        return $this->hasMany(ProjectProposalCommitteeReview::class);
     }
 }

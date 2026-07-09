@@ -3,6 +3,7 @@
 namespace App\Interfaces;
 
 use App\Models\ProjectProposal;
+use Illuminate\Support\Collection;
 
 interface ProjectProposalRepositoryInterface
 {
@@ -16,5 +17,7 @@ interface ProjectProposalRepositoryInterface
 
     public function delete(ProjectProposal $projectProposal): bool;
 
-    public function getForSupervisor(int $supervisorId): \Illuminate\Support\Collection;
+    public function getForSupervisor(int $supervisorId): Collection;
+
+    public function getForCommittee(): Collection;
 }
