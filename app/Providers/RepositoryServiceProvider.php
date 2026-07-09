@@ -1,12 +1,13 @@
 <?php
 
 namespace App\Providers;
-use App\Interfaces\ProjectProposalRepositoryInterface;
-use App\Repositories\ProjectProposalRepository;
+
 use App\Interfaces\ProfileRepositoryInterface;
 use App\Interfaces\ProjectIdeaMatchRepositoryInterface;
 use App\Interfaces\ProjectIdeaRepositoryInterface;
 use App\Interfaces\ProjectJoinRequestRepositoryInterface;
+use App\Interfaces\ProjectProposalCommitteeReviewRepositoryInterface;
+use App\Interfaces\ProjectProposalRepositoryInterface;
 use App\Interfaces\ProjectTeamMemberRepositoryInterface;
 use App\Interfaces\ProjectTeamRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
@@ -14,6 +15,8 @@ use App\Repositories\ProfileRepository;
 use App\Repositories\ProjectIdeaMatchRepository;
 use App\Repositories\ProjectIdeaRepository;
 use App\Repositories\ProjectJoinRequestRepository;
+use App\Repositories\ProjectProposalCommitteeReviewRepository;
+use App\Repositories\ProjectProposalRepository;
 use App\Repositories\ProjectTeamMemberRepository;
 use App\Repositories\ProjectTeamRepository;
 use App\Repositories\UserRepository;
@@ -30,9 +33,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(ProjectJoinRequestRepositoryInterface::class, ProjectJoinRequestRepository::class);
         $this->app->bind(ProjectTeamRepositoryInterface::class, ProjectTeamRepository::class);
         $this->app->bind(ProjectTeamMemberRepositoryInterface::class, ProjectTeamMemberRepository::class);
-        $this->app->bind(
-    ProjectProposalRepositoryInterface::class,
-    ProjectProposalRepository::class
-);
+        $this->app->bind(ProjectProposalRepositoryInterface::class, ProjectProposalRepository::class);
+        $this->app->bind(ProjectProposalCommitteeReviewRepositoryInterface::class, ProjectProposalCommitteeReviewRepository::class);
     }
 }
