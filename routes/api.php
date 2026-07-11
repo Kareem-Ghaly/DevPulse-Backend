@@ -8,6 +8,7 @@ use App\Http\Controllers\ProjectIdeaController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\ProjectTeamController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -56,6 +57,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('invitations/{invitation}/accept', [ProjectInvitationController::class, 'accept']);
     Route::post('invitations/{invitation}/reject', [ProjectInvitationController::class, 'reject']);
     Route::get('/my-projects', [ProjectTeamController::class, 'myProjects']);
+    Route::get('project-teams/{projectTeam}/members', [TaskController::class, 'members']);
+    Route::get('project-teams/{projectTeam}/tasks', [TaskController::class, 'index']);
+    Route::post('project-teams/{projectTeam}/tasks', [TaskController::class, 'store']);
+
+    Route::get('tasks/{task}', [TaskController::class, 'show']);
+    Route::put('tasks/{task}', [TaskController::class, 'update']);
+    Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus']);
+    Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
+
+    Route::post('tasks/{task}/attachments', [TaskController::class, 'addAttachments']);
+    Route::delete('task-attachments/{attachment}', [TaskController::class, 'deleteAttachment']);
+    Route::post('tasks/{task}/status', [TaskController::class, 'updateStatus']);
+
+    Route::post('tasks/{task}/links', [TaskController::class, 'addLink']);
+    Route::delete('task-links/{link}', [TaskController::class, 'deleteLink']);
 
     Route::get('project-proposals', [ProjectProposalController::class, 'index']);
     Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
@@ -71,9 +87,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware('role:Supervisor')->group(function (): void {
         Route::get('supervisor/project-proposals', [ProjectProposalController::class, 'supervisorIncoming']);
-        Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
-    });
-
+         Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
+    }); 
     Route::middleware('role:CommitteeMember')->group(function (): void {
         Route::get('committee/project-proposals', [CommitteeProjectProposalController::class, 'index']);
         Route::post('committee/project-proposals/{projectProposal}/decision', [CommitteeProjectProposalController::class, 'decision']);
