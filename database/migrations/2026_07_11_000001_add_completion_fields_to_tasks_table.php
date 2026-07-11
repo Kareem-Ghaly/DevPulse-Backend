@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('tasks', function (Blueprint $table) {
+            if (! Schema::hasColumn('tasks', 'completed_by')) {
+                $table->foreignId('completed_by')
+                    ->nullable()
+                    ->after('completed_at')
+                    ->constrained('users')
+                    ->nullOnDelete();
+            }
+
+            if (! Schema::hasColumn('tasks', 'completion_notes')) {
+                $table->text('completion_notes')->nullable()->after('completed_by');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('tasks', function (Blueprint $table) {
+            if (Schema::hasColumn('tasks', 'completed_by')) {
+                $table->dropConstrainedForeignId('completed_by');
+            }
+
+            if (Schema::hasColumn('tasks', 'completion_notes')) {
+                $table->dropColumn('completion_notes');
+            }
+        });
+    }
+};
