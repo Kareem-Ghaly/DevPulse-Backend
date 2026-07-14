@@ -12,6 +12,7 @@ use App\Interfaces\ProjectTeamMemberRepositoryInterface;
 use App\Interfaces\ProjectTeamRepositoryInterface;
 use App\Interfaces\TaskAttachmentRepositoryInterface;
 use App\Interfaces\TaskLinkRepositoryInterface;
+use App\Interfaces\TaskReviewRepositoryInterface;
 use App\Interfaces\TaskRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
 use App\Repositories\ProfileRepository;
@@ -24,6 +25,7 @@ use App\Repositories\ProjectTeamMemberRepository;
 use App\Repositories\ProjectTeamRepository;
 use App\Repositories\TaskAttachmentRepository;
 use App\Repositories\TaskLinkRepository;
+use App\Repositories\TaskReviewRepository;
 use App\Repositories\TaskRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\ServiceProvider;
@@ -44,5 +46,6 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(TaskRepositoryInterface::class, TaskRepository::class);
         $this->app->bind(TaskAttachmentRepositoryInterface::class, TaskAttachmentRepository::class);
         $this->app->bind(TaskLinkRepositoryInterface::class, TaskLinkRepository::class);
+        $this->app->bind(TaskReviewRepositoryInterface::class, TaskReviewRepository::class);
     }
 }

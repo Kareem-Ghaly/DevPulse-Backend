@@ -19,6 +19,16 @@ class TaskRepository implements TaskRepositoryInterface
             ->get();
     }
 
+    public function getForSupervisorTeam(ProjectTeam $projectTeam): Collection
+    {
+        return Task::query()
+            ->with(['assignedUser', 'creator', 'attachments.uploader', 'links.creator', 'latestReview.supervisor'])
+            ->where('project_team_id', $projectTeam->id)
+            ->orderByDesc('last_update')
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
     public function create(array $data): Task
     {
         return Task::query()->create($data);

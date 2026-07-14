@@ -20,4 +20,8 @@ interface ProjectProposalRepositoryInterface
     public function getForSupervisor(int $supervisorId): Collection;
 
     public function getForCommittee(): Collection;
+
+    public function findByTeamAndSupervisor(int $projectTeamId, int $supervisorId): ?ProjectProposal;
+
+    public function findByTeam(int $projectTeamId): ?ProjectProposal;
 }

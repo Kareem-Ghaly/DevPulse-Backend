@@ -48,6 +48,31 @@ class UserRepository implements UserRepositoryInterface
             ->find($id);
     }
 
+    public function findSupervisorById(int $id): ?User
+    {
+        $user = User::query()->with('roles')->find($id);
+
+        return $user && $user->hasRole('Supervisor') ? $user : null;
+    }
+
+    public function findSupervisorByEmail(string $email): ?User
+    {
+        $user = User::query()->with('roles')->where('email', $email)->first();
+
+        return $user && $user->hasRole('Supervisor') ? $user : null;
+    }
+
+    public function findSupervisorByExactName(string $name): ?User
+    {
+        $matches = User::query()
+            ->with('roles')
+            ->role('Supervisor')
+            ->where('name', $name)
+            ->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
     public function getPendingApprovalUsers(): Collection
     {
         return User::query()

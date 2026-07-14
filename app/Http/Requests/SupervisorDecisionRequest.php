@@ -14,7 +14,7 @@ class SupervisorDecisionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', 'in:approved,rejected,needs_revision,supervisor_approved,supervisor_rejected'],
+            'status' => ['required', 'string', 'in:approved,rejected,changes_requested,needs_revision,supervisor_approved,supervisor_rejected'],
             'notes' => ['nullable', 'string'],
         ];
     }

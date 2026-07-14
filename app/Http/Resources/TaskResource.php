@@ -40,6 +40,16 @@ class TaskResource extends JsonResource
             'last_update' => $this->last_update,
             'attachments' => TaskAttachmentResource::collection($this->whenLoaded('attachments')),
             'links' => TaskLinkResource::collection($this->whenLoaded('links')),
+            'latest_review' => $this->whenLoaded('latestReview', fn () => $this->latestReview ? [
+                'id' => $this->latestReview->id,
+                'review' => $this->latestReview->review,
+                'reviewed_at' => $this->latestReview->reviewed_at,
+                'supervisor' => $this->latestReview->relationLoaded('supervisor') && $this->latestReview->supervisor ? [
+                    'id' => $this->latestReview->supervisor->id,
+                    'name' => $this->latestReview->supervisor->name,
+                    'email' => $this->latestReview->supervisor->email,
+                ] : null,
+            ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

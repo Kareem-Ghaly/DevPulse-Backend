@@ -21,6 +21,7 @@ class TaskChanged implements ShouldBroadcastNow
         public ?array $attachment = null,
         public ?array $link = null,
         public ?array $attachments = null,
+        public ?array $review = null,
     ) {}
 
     /**
@@ -56,6 +57,7 @@ class TaskChanged implements ShouldBroadcastNow
             'attachment' => $this->attachment,
             'attachments' => $this->attachments,
             'link' => $this->link,
+            'review' => $this->review,
         ], fn ($value) => $value !== null);
     }
 }

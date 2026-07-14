@@ -10,24 +10,24 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
 {
     public function all()
     {
-        return ProjectProposal::with('team')->latest()->get();
+        return ProjectProposal::with(['team', 'supervisorUser', 'creator', 'lastUpdater'])->latest()->get();
     }
 
     public function find(int $id): ?ProjectProposal
     {
-        return ProjectProposal::with('team')->find($id);
+        return ProjectProposal::with(['team', 'supervisorUser', 'creator', 'lastUpdater'])->find($id);
     }
 
     public function create(array $data): ProjectProposal
     {
-        return ProjectProposal::create($data);
+        return ProjectProposal::create($data)->load(['team', 'supervisorUser', 'creator', 'lastUpdater']);
     }
 
     public function update(ProjectProposal $projectProposal, array $data): ProjectProposal
     {
         $projectProposal->update($data);
 
-        return $projectProposal->fresh('team');
+        return $projectProposal->fresh(['team', 'supervisorUser', 'creator', 'lastUpdater']);
     }
 
     public function delete(ProjectProposal $projectProposal): bool
@@ -38,7 +38,8 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
     public function getForSupervisor(int $supervisorId): Collection
     {
         return ProjectProposal::query()
-            ->where('supervisor', $supervisorId)
+            ->with(['team', 'supervisorUser', 'creator', 'lastUpdater'])
+            ->where('supervisor_id', $supervisorId)
             ->where('status', 'submitted')
             ->orderByDesc('last_update')
             ->get();
@@ -47,9 +48,26 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
     public function getForCommittee(): Collection
     {
         return ProjectProposal::query()
-            ->with(['team', 'committeeReviews.committeeMember'])
+            ->with(['team', 'supervisorUser', 'committeeReviews.committeeMember'])
             ->where('status', 'submitted_to_committee')
             ->orderByDesc('last_update')
             ->get();
+    }
+
+    public function findByTeamAndSupervisor(int $projectTeamId, int $supervisorId): ?ProjectProposal
+    {
+        return ProjectProposal::query()
+            ->with(['team', 'supervisorUser', 'creator', 'lastUpdater'])
+            ->where('project_team_id', $projectTeamId)
+            ->where('supervisor_id', $supervisorId)
+            ->first();
+    }
+
+    public function findByTeam(int $projectTeamId): ?ProjectProposal
+    {
+        return ProjectProposal::query()
+            ->with(['team', 'supervisorUser', 'creator', 'lastUpdater'])
+            ->where('project_team_id', $projectTeamId)
+            ->first();
     }
 }

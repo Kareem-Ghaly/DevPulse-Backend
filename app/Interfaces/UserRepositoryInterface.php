@@ -20,6 +20,12 @@ interface UserRepositoryInterface
 
     public function findUserById(int $id): ?User;
 
+    public function findSupervisorById(int $id): ?User;
+
+    public function findSupervisorByEmail(string $email): ?User;
+
+    public function findSupervisorByExactName(string $name): ?User;
+
     public function getPendingApprovalUsers(): Collection;
 
     public function linkProviderToUser(User $user, string $provider, string $providerId, ?string $avatar): User;

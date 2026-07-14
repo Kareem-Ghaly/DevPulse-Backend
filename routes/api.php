@@ -8,6 +8,7 @@ use App\Http\Controllers\ProjectIdeaController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\ProjectTeamController;
+use App\Http\Controllers\SupervisorTaskReviewController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -87,7 +88,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware('role:Supervisor')->group(function (): void {
         Route::get('supervisor/project-proposals', [ProjectProposalController::class, 'supervisorIncoming']);
-         Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
+        Route::post('project-proposals/{projectProposal}/decision', [ProjectProposalController::class, 'supervisorDecision']);
+
+        Route::prefix('supervisor')->group(function (): void {
+            Route::get('project-teams/{projectTeam}/tasks', [SupervisorTaskReviewController::class, 'index']);
+            Route::post('tasks/{task}/review', [SupervisorTaskReviewController::class, 'review']);
+        });
     }); 
     Route::middleware('role:CommitteeMember')->group(function (): void {
         Route::get('committee/project-proposals', [CommitteeProjectProposalController::class, 'index']);

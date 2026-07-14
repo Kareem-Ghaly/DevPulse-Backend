@@ -14,7 +14,18 @@ class ProjectProposalResource extends JsonResource
             'id' => $this->id,
 
             'project_team_id' => $this->project_team_id,
+            'supervisor_id' => $this->supervisor_id,
+            'supervisor_user' => $this->whenLoaded('supervisorUser', fn () => $this->supervisorUser ? [
+                'id' => $this->supervisorUser->id,
+                'name' => $this->supervisorUser->name,
+                'email' => $this->supervisorUser->email,
+            ] : null),
             'created_by' => $this->created_by,
+            'created_by_user' => $this->whenLoaded('creator', fn () => $this->creator ? [
+                'id' => $this->creator->id,
+                'name' => $this->creator->name,
+                'email' => $this->creator->email,
+            ] : null),
             'last_updated_by' => $this->last_updated_by,
 
             'title' => $this->title,

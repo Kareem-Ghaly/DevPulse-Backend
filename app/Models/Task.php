@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
     'project_team_id',
@@ -60,5 +61,14 @@ class Task extends Model
     public function links(): HasMany
     {
         return $this->hasMany(TaskLink::class);
+    }
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(TaskReview::class);
+    }
+
+    public function latestReview(): HasOne
+    {
+        return $this->hasOne(TaskReview::class)->latestOfMany('reviewed_at');
     }
 }

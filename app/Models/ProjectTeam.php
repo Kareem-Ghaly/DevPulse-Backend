@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['project_idea_id', 'leader_id', 'status'])]
 class ProjectTeam extends Model
@@ -29,5 +30,9 @@ class ProjectTeam extends Model
     {
         return $this->hasMany(Task::class);
     }
-}
 
+    public function proposal(): HasOne
+    {
+        return $this->hasOne(ProjectProposal::class, 'project_team_id');
+    }
+}

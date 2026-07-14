@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProjectProposalRequest;
+use App\Http\Requests\SubmitProjectProposalRequest;
 use App\Http\Requests\SupervisorDecisionRequest;
 use App\Http\Requests\UpdateProjectProposalRequest;
 use App\Models\ProjectProposal;
@@ -38,13 +39,9 @@ class ProjectProposalController extends Controller
         return $this->service->destroy($projectProposal);
     }
 
-    public function submitToSupervisor(Request $request, ProjectProposal $projectProposal)
+    public function submitToSupervisor(SubmitProjectProposalRequest $request, ProjectProposal $projectProposal)
     {
-        $validated = $request->validate([
-            'supervisor_id' => ['required', 'exists:users,id'],
-        ]);
-
-        return $this->service->submitToSupervisor($projectProposal, $validated);
+        return $this->service->submitToSupervisor($projectProposal, $request->validated());
     }
 
     public function submitToCommittee(ProjectProposal $projectProposal)

@@ -35,10 +35,11 @@ class StoreProjectProposalRequest extends FormRequest
             'project_management' => ['nullable', 'string'],
             'programming_languages' => ['nullable', 'string'],
 
+            'supervisor_id' => ['nullable', 'exists:users,id'],
             'supervisor' => ['nullable', 'string', 'max:255'],
             'project_teams' => ['nullable', 'string'],
 
-            'status' => ['nullable', 'in:draft,submitted'],
+            'status' => ['nullable', 'in:draft,submitted,under_review,needs_changes,approved,rejected,changes_requested,needs_revision,supervisor_approved,supervisor_rejected,submitted_to_committee,committee_approved,committee_rejected,committee_needs_revision'],
         ];
     }
 }

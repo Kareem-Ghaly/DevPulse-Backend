@@ -10,6 +10,8 @@ interface TaskRepositoryInterface
 {
     public function getForTeam(ProjectTeam $projectTeam): Collection;
 
+    public function getForSupervisorTeam(ProjectTeam $projectTeam): Collection;
+
     public function create(array $data): Task;
 
     public function update(Task $task, array $data): Task;
