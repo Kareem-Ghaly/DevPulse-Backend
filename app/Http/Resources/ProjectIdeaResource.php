@@ -26,7 +26,7 @@ class ProjectIdeaResource extends JsonResource
             'ai_error' => $this->ai_error,
             'team_size' => $this->team_size,
             'status' => $this->status,
-            'is_public' => $this->is_public,
+           
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
