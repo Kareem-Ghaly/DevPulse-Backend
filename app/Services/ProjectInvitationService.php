@@ -8,6 +8,7 @@ use App\Interfaces\ProjectIdeaRepositoryInterface;
 use App\Interfaces\ProjectJoinRequestRepositoryInterface;
 use App\Interfaces\UserRepositoryInterface;
 use App\Models\ProjectJoinRequest;
+use App\Models\ProjectTeam;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,7 @@ class ProjectInvitationService extends BaseService
         private readonly ProjectIdeaRepositoryInterface $projectIdeas,
         private readonly ProjectJoinRequestRepositoryInterface $joinRequests,
         private readonly UserRepositoryInterface $users,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function send(int $projectIdeaId, array $data): JsonResponse
@@ -54,6 +56,17 @@ class ProjectInvitationService extends BaseService
             'receiver_id' => $receiverId,
             'status' => 'pending',
         ]);
+
+        $this->notifications->sendToUser(
+            $receiver,
+            'Project team invitation',
+            "You were invited to join {$projectIdea->title}.",
+            [
+                'type' => 'team_invitation_sent',
+                'entity_type' => 'project_join_request',
+                'entity_id' => $invitation->id,
+            ]
+        );
 
         return $this->successResponse([
             'invitation' => new ProjectInvitationResource($invitation),
@@ -95,20 +108,63 @@ class ProjectInvitationService extends BaseService
             return $this->errorResponse('This project team is already full.', null, 422);
         }
 
-        $invitation = DB::transaction(function () use ($invitation, $status): ProjectJoinRequest {
+        [$invitation, $team] = DB::transaction(function () use ($invitation, $status): array {
             $invitation = $status === 'accepted'
                 ? $this->joinRequests->accept($invitation)
                 : $this->joinRequests->reject($invitation);
 
+            $team = null;
+
             if ($status === 'accepted') {
-                $this->teamService->addAcceptedMember($invitation->projectIdea, $invitation->receiver_id);
+                $team = $this->teamService->addAcceptedMember($invitation->projectIdea, $invitation->receiver_id);
             }
 
-            return $invitation;
+            return [$invitation, $team];
         });
+
+        $this->notifyInvitationResponse($invitation, $status, $team);
 
         return $this->successResponse([
             'invitation' => new ProjectInvitationResource($invitation),
         ], "Invitation {$status} successfully");
+    }
+
+    private function notifyInvitationResponse(ProjectJoinRequest $invitation, string $status, ?ProjectTeam $team): void
+    {
+        $invitation->loadMissing(['projectIdea.owner', 'receiver']);
+        $owner = $invitation->projectIdea?->owner;
+
+        if ($owner) {
+            $this->notifications->sendToUser(
+                $owner,
+                $status === 'accepted' ? 'Invitation accepted' : 'Invitation rejected',
+                "{$invitation->receiver?->name} {$status} your project team invitation.",
+                [
+                    'type' => $status === 'accepted' ? 'team_invitation_accepted' : 'team_invitation_rejected',
+                    'entity_type' => 'project_join_request',
+                    'entity_id' => $invitation->id,
+                ]
+            );
+        }
+
+        if ($status === 'accepted' && $team?->status === 'completed') {
+            $team->loadMissing(['members.user', 'leader']);
+            $members = $team->members->pluck('user')->filter();
+
+            if ($team->leader) {
+                $members->push($team->leader);
+            }
+
+            $this->notifications->sendToUsers(
+                $members,
+                'Project team completed',
+                'Your project team is now complete.',
+                [
+                    'type' => 'team_completed',
+                    'entity_type' => 'project_team',
+                    'entity_id' => $team->id,
+                ]
+            );
+        }
     }
 }

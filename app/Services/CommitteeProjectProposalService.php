@@ -19,7 +19,8 @@ class CommitteeProjectProposalService
 
     public function __construct(
         private readonly ProjectProposalRepositoryInterface $projectProposals,
-        private readonly ProjectProposalCommitteeReviewRepositoryInterface $committeeReviews
+        private readonly ProjectProposalCommitteeReviewRepositoryInterface $committeeReviews,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function index(): JsonResponse
@@ -66,6 +67,7 @@ class CommitteeProjectProposalService
         $proposal->load(['team', 'committeeReviews.committeeMember']);
 
         $this->broadcastProposalChange($proposal, 'committee_decision');
+        $this->notifyCommitteeDecision($proposal);
 
         return $this->successResponse(
             [

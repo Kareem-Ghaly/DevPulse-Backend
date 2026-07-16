@@ -27,6 +27,7 @@ class SupervisorTaskReviewService
     public function __construct(
         private readonly TaskRepositoryInterface $tasks,
         private readonly TaskReviewRepositoryInterface $reviews,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function index(ProjectTeam $projectTeam): JsonResponse
@@ -69,6 +70,7 @@ class SupervisorTaskReviewService
         $task->load(self::TASK_RELATIONS);
 
         $this->broadcastTaskReviewed($task, $review);
+        $this->notifyTaskReviewAdded($task);
 
         return $this->successResponse([
             'review' => $this->reviewPayload($review),
@@ -111,6 +113,20 @@ class SupervisorTaskReviewService
         return $grouped;
     }
 
+    private function notifyTaskReviewAdded(Task $task): void
+    {
+        $task->loadMissing('assignedUser');
+
+        if (! $task->assignedUser || $task->assigned_to === auth()->id()) {
+            return;
+        }
+
+        $this->notifications->sendToUser($task->assignedUser, 'Task review added', "A supervisor added a review to your task: {$task->title}.", [
+            'type' => 'task_review_added',
+            'entity_type' => 'task',
+            'entity_id' => $task->id,
+        ]);
+    }
     private function broadcastTaskReviewed(Task $task, TaskReview $review): void
     {
         try {

@@ -30,6 +30,7 @@ class ProjectProposalService
         private readonly ProjectProposalRepositoryInterface $repository,
         private readonly ProjectTeamRepositoryInterface $projectTeams,
         private readonly UserRepositoryInterface $users,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function index()
@@ -107,9 +108,11 @@ class ProjectProposalService
 
         $data['last_update'] = now();
 
+        $previousStatus = $projectProposal->status;
         $proposal = $this->repository->update($projectProposal, $data);
 
         $this->broadcastProposalChange($proposal, 'updated');
+        $this->notifyProposalUpdatedWhenSubmitted($proposal, $previousStatus);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -158,6 +161,7 @@ class ProjectProposalService
         $proposal = $this->repository->update($projectProposal, $updateData);
 
         $this->broadcastProposalChange($proposal, 'submitted');
+        $this->notifyProposalSubmittedToSupervisor($proposal);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -215,6 +219,7 @@ class ProjectProposalService
         $proposal->load(['team', 'supervisorUser', 'creator', 'lastUpdater', 'committeeReviews.committeeMember']);
 
         $this->broadcastProposalChange($proposal, 'supervisor_decision');
+        $this->notifySupervisorDecision($proposal);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -393,6 +398,71 @@ class ProjectProposalService
         }
     }
 
+    private function notifyProposalSubmittedToSupervisor(ProjectProposal $proposal): void
+    {
+        $proposal->loadMissing('supervisorUser');
+
+        if (! $proposal->supervisorUser) {
+            return;
+        }
+
+        $this->notifications->sendToUser($proposal->supervisorUser, 'Project proposal submitted', "A project proposal was submitted for your review: {$proposal->title}.", [
+            'type' => 'proposal_submitted_to_supervisor',
+            'entity_type' => 'project_proposal',
+            'entity_id' => $proposal->id,
+        ]);
+    }
+
+    private function notifyProposalUpdatedWhenSubmitted(ProjectProposal $proposal, ?string $previousStatus): void
+    {
+        if ($previousStatus === 'draft' || ! in_array($proposal->status, ['submitted', 'needs_revision'], true)) {
+            return;
+        }
+
+        $proposal->loadMissing('supervisorUser');
+
+        if (! $proposal->supervisorUser) {
+            return;
+        }
+
+        $this->notifications->sendToUser($proposal->supervisorUser, 'Project proposal updated', "A submitted project proposal was updated: {$proposal->title}.", [
+            'type' => 'proposal_updated',
+            'entity_type' => 'project_proposal',
+            'entity_id' => $proposal->id,
+        ]);
+    }
+
+    private function notifySupervisorDecision(ProjectProposal $proposal): void
+    {
+        $type = match ($proposal->status) {
+            'supervisor_approved' => 'proposal_approved_by_supervisor',
+            'needs_revision' => 'proposal_changes_requested_by_supervisor',
+            'supervisor_rejected' => 'proposal_rejected_by_supervisor',
+            default => null,
+        };
+
+        if (! $type) {
+            return;
+        }
+
+        $proposal->loadMissing(['team.members.user', 'team.leader']);
+
+        if (! $proposal->team) {
+            return;
+        }
+
+        $members = $proposal->team->members->pluck('user')->filter();
+
+        if ($proposal->team->leader) {
+            $members->push($proposal->team->leader);
+        }
+
+        $this->notifications->sendToUsers($members, 'Project proposal decision', "Supervisor decision was saved for: {$proposal->title}.", [
+            'type' => $type,
+            'entity_type' => 'project_proposal',
+            'entity_id' => $proposal->id,
+        ]);
+    }
     private function broadcastProposalChange(ProjectProposal $proposal, string $action): void
     {
         try {

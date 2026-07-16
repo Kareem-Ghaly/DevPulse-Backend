@@ -10,6 +10,7 @@ use App\Interfaces\ProjectTeamMemberRepositoryInterface;
 use App\Interfaces\TaskAttachmentRepositoryInterface;
 use App\Interfaces\TaskLinkRepositoryInterface;
 use App\Interfaces\TaskRepositoryInterface;
+use App\Models\ProjectProposal;
 use App\Models\ProjectTeam;
 use App\Models\Task;
 use App\Models\TaskAttachment;
@@ -35,6 +36,7 @@ class TaskService
         private readonly TaskAttachmentRepositoryInterface $attachments,
         private readonly TaskLinkRepositoryInterface $links,
         private readonly ProjectTeamMemberRepositoryInterface $teamMembers,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function members(ProjectTeam $projectTeam): JsonResponse
@@ -81,6 +83,7 @@ class TaskService
         $task->load(self::TASK_RELATIONS);
 
         $this->broadcastTaskChange('task_created', $projectTeam->id, $task->id, $task);
+        $this->notifyTaskAssigned($task);
 
         return $this->successResponse([
             'task' => new TaskResource($task),
@@ -102,6 +105,8 @@ class TaskService
             return $this->invalidAssignedUserResponse();
         }
 
+        $previousAssignedTo = $task->assigned_to;
+
         if (array_key_exists('status', $data)) {
             $data['completed_at'] = $data['status'] === 'done' ? now() : null;
         }
@@ -111,6 +116,10 @@ class TaskService
         $task = $this->tasks->update($task, $data);
 
         $this->broadcastTaskChange('task_updated', $task->project_team_id, $task->id, $task);
+
+        if (array_key_exists('assigned_to', $data) && (int) $previousAssignedTo !== (int) $task->assigned_to) {
+            $this->notifyTaskAssigned($task);
+        }
 
         return $this->successResponse([
             'task' => new TaskResource($task),
@@ -151,6 +160,8 @@ class TaskService
             link: $createdLink ? $this->linkPayload($createdLink) : null,
             attachments: $createdAttachments->isNotEmpty() ? $this->attachmentsPayload($createdAttachments) : null,
         );
+
+        $this->notifyTaskStatusChanged($task);
 
         return $this->successResponse([
             'task' => new TaskResource($task),
@@ -334,6 +345,53 @@ class TaskService
         ];
     }
 
+    private function notifyTaskAssigned(Task $task): void
+    {
+        $task->loadMissing('assignedUser');
+
+        if (! $task->assignedUser || $task->assigned_to === auth()->id()) {
+            return;
+        }
+
+        $this->notifications->sendToUser($task->assignedUser, 'Task assigned', "You were assigned a task: {$task->title}.", [
+            'type' => 'task_assigned',
+            'entity_type' => 'task',
+            'entity_id' => $task->id,
+        ]);
+    }
+
+    private function notifyTaskStatusChanged(Task $task): void
+    {
+        $task->loadMissing(['projectTeam.leader']);
+
+        if (! $task->projectTeam) {
+            return;
+        }
+
+        $users = collect();
+        $proposal = ProjectProposal::query()
+            ->with('supervisorUser')
+            ->where('project_team_id', $task->project_team_id)
+            ->whereNotNull('supervisor_id')
+            ->first();
+
+        if ($proposal?->supervisorUser) {
+            $users->push($proposal->supervisorUser);
+        }
+
+        if ($task->projectTeam->leader) {
+            $users->push($task->projectTeam->leader);
+        }
+
+        $actorId = auth()->id();
+        $users = $users->filter(fn ($user): bool => $user && $user->id !== $actorId);
+
+        $this->notifications->sendToUsers($users, 'Task status changed', "Task status changed: {$task->title}.", [
+            'type' => 'task_status_changed',
+            'entity_type' => 'task',
+            'entity_id' => $task->id,
+        ]);
+    }
     private function broadcastTaskChange(
         string $action,
         int $projectTeamId,
