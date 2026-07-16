@@ -65,4 +65,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ProjectJoinRequest::class, 'receiver_id');
     }
+
+    public function firebaseDeviceTokens(): HasMany
+    {
+        return $this->hasMany(FirebaseDeviceToken::class);
+    }
 }
