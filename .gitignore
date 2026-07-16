@@ -30,3 +30,4 @@ BACKEND_API_CONT*
 DevPulse-auth.postm*
 DevPulse.local.postma*
 postman/
+/storage/app/firebase/*.json
