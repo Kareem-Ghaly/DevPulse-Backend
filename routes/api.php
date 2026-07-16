@@ -3,6 +3,8 @@
 use App\Http\Controllers\AdminUserApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommitteeProjectProposalController;
+use App\Http\Controllers\FirebaseTokenController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectIdeaController;
 use App\Http\Controllers\ProjectInvitationController;
@@ -44,6 +46,12 @@ Route::prefix('profile')
     });
 
 Route::middleware('auth:sanctum')->group(function (): void {
+
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::post('notifications/firebase-token', [FirebaseTokenController::class, 'store']);
+    Route::delete('notifications/firebase-token', [FirebaseTokenController::class, 'destroy']);
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::apiResource('project-ideas', ProjectIdeaController::class)->parameters([
         'project-ideas' => 'projectIdea',
     ])->middlewareFor('store', 'role:Student');
