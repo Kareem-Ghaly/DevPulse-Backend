@@ -88,17 +88,30 @@ class ProjectTeamService extends BaseService
     }
 
     public function getStudentProjects(int $studentId): JsonResponse
-    {
-        $projects = $this->projectIdeas->getByOwnerId($studentId);
+{
+    $projects = ProjectIdea::query()
+        ->where('owner_id', $studentId)
+        ->orWhereIn('id', function ($query) use ($studentId) {
+            $query->select('project_teams.project_idea_id')
+                ->from('project_teams')
+                ->join(
+                    'project_team_members',
+                    'project_team_members.project_team_id',
+                    '=',
+                    'project_teams.id'
+                )
+                ->where('project_team_members.user_id', $studentId);
+        })
+        ->get();
 
-        if ($projects->isEmpty()) {
-            return $this->successResponse([
-                'projects' => [],
-            ], 'You haven\'t created any project ideas yet.');
-        }
-
+    if ($projects->isEmpty()) {
         return $this->successResponse([
-            'projects' => $projects, 
-        ], 'Student project ideas retrieved successfully.');
+            'projects' => [],
+        ], 'You do not own or belong to any projects yet.');
     }
+
+    return $this->successResponse([
+        'projects' => $projects,
+    ], 'Student projects retrieved successfully.');
+}
 }
