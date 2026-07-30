@@ -20,6 +20,8 @@ class StoreProjectProposalRequest extends FormRequest
 
             'problem' => ['nullable', 'string'],
             'problem_overview' => ['nullable', 'string'],
+            'project_team_id' => ['nullable', 'integer', 'exists:project_teams,id'],
+            
             'comparison_table_with_similar_applications' => ['nullable', 'string'],
             'project_users' => ['nullable', 'string'],
 

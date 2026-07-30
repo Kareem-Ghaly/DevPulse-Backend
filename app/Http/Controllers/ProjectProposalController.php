@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProjectProposalRequest;
-use App\Http\Requests\SubmitProjectProposalRequest;
 use App\Http\Requests\SupervisorDecisionRequest;
 use App\Http\Requests\UpdateProjectProposalRequest;
 use App\Models\ProjectProposal;
+use App\Models\ProjectTeam;
 use App\Services\ProjectProposalService;
 use Illuminate\Http\Request;
 
@@ -29,19 +29,36 @@ class ProjectProposalController extends Controller
         return $this->service->show($projectProposal);
     }
 
-    public function update(UpdateProjectProposalRequest $request, ProjectProposal $projectProposal)
+    public function showByTeam(ProjectTeam $projectTeam)
     {
-        return $this->service->update($projectProposal, $request->validated());
+        return $this->service->showByTeam($projectTeam);
     }
+
+    public function update(Request $request, ProjectProposal $projectProposal)
+{
+    \Log::info('Request all:', $request->all());
+    \Log::info('Has file mind_map_problem:', [$request->hasFile('mind_map_problem')]);
+    \Log::info('File info:', $request->file('mind_map_problem') ? [
+        'name' => $request->file('mind_map_problem')->getClientOriginalName(),
+        'size' => $request->file('mind_map_problem')->getSize(),
+        'mime' => $request->file('mind_map_problem')->getMimeType(),
+    ] : ['no file']);
+    
+    return $this->service->update($projectProposal, $request->all());
+}
 
     public function destroy(ProjectProposal $projectProposal)
     {
         return $this->service->destroy($projectProposal);
     }
 
-    public function submitToSupervisor(SubmitProjectProposalRequest $request, ProjectProposal $projectProposal)
+    public function submitToSupervisor(Request $request, ProjectProposal $projectProposal)
     {
-        return $this->service->submitToSupervisor($projectProposal, $request->validated());
+        $validated = $request->validate([
+            'supervisor_id' => ['required', 'exists:users,id'],
+        ]);
+
+        return $this->service->submitToSupervisor($projectProposal, $validated);
     }
 
     public function submitToCommittee(ProjectProposal $projectProposal)

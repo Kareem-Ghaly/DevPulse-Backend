@@ -23,12 +23,12 @@ class UpdateProjectProposalRequest extends FormRequest
             'comparison_table_with_similar_applications' => ['nullable', 'string'],
             'project_users' => ['nullable', 'string'],
 
-            'mind_map_problem' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'mind_map_problem' => ['nullable', 'file', 'image', 'max:5120'],
 
             'solution_overview' => ['nullable', 'string'],
             'proposed_solution' => ['nullable', 'string'],
 
-            'mind_map_solution' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'mind_map_solution' => ['nullable', 'file', 'image', 'max:5120'],
 
             'functional_requirements' => ['nullable', 'string'],
             'non_functional_requirements' => ['nullable', 'string'],

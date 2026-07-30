@@ -8,6 +8,7 @@ use App\Enums\UserStatus;
 use App\Http\Resources\UserResource;
 use App\Interfaces\UserRepositoryInterface;
 use App\Models\User;
+use GuzzleHttp\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,7 +18,15 @@ use Laravel\Socialite\Two\User as SocialiteUser;
 
 class AuthService extends BaseService
 {
-    public function __construct(private readonly UserRepositoryInterface $users) {}
+    private Client $httpClient;
+
+    public function __construct(private readonly UserRepositoryInterface $users)
+    {
+        $isLocal = app()->environment('local', 'development', 'testing');
+        $this->httpClient = new Client([
+            'verify' => ! $isLocal,
+        ]);
+    }
 
     public function registerStudent(array $data): JsonResponse
     {
@@ -119,7 +128,9 @@ class AuthService extends BaseService
             ], 422);
         }
 
-        $driver = Socialite::driver($provider)->stateless();
+        $driver = Socialite::driver($provider)
+            ->stateless()
+            ->setHttpClient($this->httpClient);
 
         if ($role !== null) {
             $driver->with(['state' => $role]);
@@ -130,7 +141,7 @@ class AuthService extends BaseService
         ], 'Redirect URL generated successfully');
     }
 
-    public function handleProviderCallback(string $provider): JsonResponse
+    public function handleProviderCallback(string $provider): \Illuminate\Http\RedirectResponse|JsonResponse
     {
         if (! SocialProvider::isSupported($provider)) {
             return $this->errorResponse('Unsupported social provider.', [
@@ -138,41 +149,45 @@ class AuthService extends BaseService
             ], 422);
         }
 
-        $providerUser = Socialite::driver($provider)->stateless()->user();
+        try {
+            $providerUser = Socialite::driver($provider)
+                ->stateless()
+                ->setHttpClient($this->httpClient)
+                ->user();
+        } catch (\Exception $e) {
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode($e->getMessage()));
+        }
+
         $providerId = (string) $providerUser->getId();
         $role = request()->query('state');
 
         $user = $this->users->findByProvider($provider, $providerId);
 
         if ($user) {
-            return $this->socialLoginResponse($this->users->loadProfile($user), false);
+            return $this->socialLoginRedirect($this->users->loadProfile($user), false);
         }
 
         $user = $this->users->findByEmail($providerUser->getEmail());
 
         if ($user) {
             if ($user->hasRole(UserRole::Admin->value)) {
-                return $this->errorResponse('Admins must use the admin login endpoint.', [
-                    'provider' => ['Admin accounts cannot use social login.'],
-                ], 403);
+                return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Admin accounts cannot use social login.'));
             }
 
             $user = $this->users->linkProviderToUser($user, $provider, $providerId, $providerUser->getAvatar());
 
-            return $this->socialLoginResponse($user, false);
+            return $this->socialLoginRedirect($user, false);
         }
 
         $userRole = $this->socialRoleFromSlug($role);
 
         if (! $userRole) {
-            return $this->errorResponse('Role is required for first social registration.', [
-                'role' => ['Select student, supervisor, or committee-member before continuing.'],
-            ], 422);
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Role is required for first social registration.'));
         }
 
         $user = $this->createSocialUserWithProfile($providerUser, $provider, $providerId, $userRole);
 
-        return $this->socialLoginResponse($user, true);
+        return $this->socialLoginRedirect($user, true);
     }
 
     public function logout(): JsonResponse
@@ -186,6 +201,41 @@ class AuthService extends BaseService
         $user->currentAccessToken()?->delete();
 
         return $this->successResponse(null, 'Logged out successfully');
+    }
+
+    private function socialLoginRedirect(User $user, bool $isNewRegistration): \Illuminate\Http\RedirectResponse
+    {
+        $user = $this->users->loadProfile($user);
+
+        if ($user->hasRole(UserRole::Admin->value)) {
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Admin accounts cannot use social login.'));
+        }
+
+        if ($user->status === UserStatus::PENDING->value) {
+            $message = $isNewRegistration
+                ? 'Your account has been created and is waiting for admin approval.'
+                : 'Your account is waiting for admin approval.';
+
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?status=pending&message=' . urlencode($message));
+        }
+
+        if ($user->status === UserStatus::REJECTED->value) {
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Your account has been rejected by admin.'));
+        }
+
+        $this->users->markLastLogin($user);
+        $user = $this->users->loadProfile($user);
+        $token = $user->createToken('devpulse-social-token')->plainTextToken;
+
+        $queryParams = http_build_query([
+            'token' => $token,
+            'user' => json_encode(new UserResource($user)),
+            'role' => $user->getRoleNames()->first(),
+            'status' => $user->status,
+            'profile_completed' => $user->profile_completed ? '1' : '0',
+        ]);
+
+        return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?' . $queryParams);
     }
 
     public function me(): JsonResponse

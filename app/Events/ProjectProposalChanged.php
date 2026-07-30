@@ -5,6 +5,7 @@ namespace App\Events;
 use App\Models\ProjectProposal;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -18,16 +19,10 @@ class ProjectProposalChanged implements ShouldBroadcastNow
         public string $action
     ) {}
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, Channel>
-     */
     public function broadcastOn(): array
     {
         return [
-            new Channel('project-proposals'),
-            new Channel('project-proposal.'.$this->proposal->id),
+            new PrivateChannel('proposal.team.' . $this->proposal->project_team_id),
         ];
     }
 
@@ -40,9 +35,7 @@ class ProjectProposalChanged implements ShouldBroadcastNow
     {
         return [
             'action' => $this->action,
-            'proposal_id' => $this->proposal->id,
-            'title' => $this->proposal->title,
-            'status' => $this->proposal->status,
+            'proposal' => new \App\Http\Resources\ProjectProposalResource($this->proposal),
         ];
     }
 }

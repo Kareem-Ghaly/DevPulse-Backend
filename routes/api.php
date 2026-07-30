@@ -20,8 +20,9 @@ Route::prefix('auth')->group(function (): void {
     Route::post('register/committee-member', [AuthController::class, 'registerCommitteeMember']);
     Route::post('login', [AuthController::class, 'login']);
     Route::post('admin-login', [AuthController::class, 'adminLogin']);
-    Route::get('{provider}/redirect', [AuthController::class, 'redirectToProvider']);
-    Route::get('{provider}/callback', [AuthController::class, 'handleProviderCallback']);
+    Route::get('/{provider}/redirect', [AuthController::class, 'redirectToProvider']);
+    Route::get('/{provider}/callback', [AuthController::class, 'handleProviderCallback']);
+
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('me', [AuthController::class, 'me']);
@@ -84,6 +85,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('project-proposals', [ProjectProposalController::class, 'index']);
     Route::get('project-proposals/{projectProposal}', [ProjectProposalController::class, 'show']);
+
+    Route::get('project-proposals/team/{projectTeam}', [ProjectProposalController::class, 'showByTeam'])
+    ->middleware('auth:sanctum');
+
+    Route::post('/project-proposals/{projectProposal}', [ProjectProposalController::class, 'update'])
+    ->name('project-proposals.update');
 
     Route::middleware('role:Student')->group(function (): void {
         Route::post('project-proposals', [ProjectProposalController::class, 'store']);
