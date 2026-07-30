@@ -12,6 +12,8 @@ use App\Http\Controllers\ProjectProposalController;
 use App\Http\Controllers\ProjectTeamController;
 use App\Http\Controllers\SupervisorTaskReviewController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\FinalSubmissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -114,4 +116,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('committee/project-proposals', [CommitteeProjectProposalController::class, 'index']);
         Route::post('committee/project-proposals/{projectProposal}/decision', [CommitteeProjectProposalController::class, 'decision']);
     });
+
+    Route::middleware('auth:sanctum')->group(function () {
+    Route::get('announcements', [AnnouncementController::class, 'index']);
+    
+    Route::middleware('role:CommitteeMember')->group(function () {
+        Route::post('announcements', [AnnouncementController::class, 'store']);
+        Route::delete('announcements/{announcement}', [AnnouncementController::class, 'destroy']);
+    });
+
+    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('role:Student')->group(function () {
+        Route::post('final-submissions', [FinalSubmissionController::class, 'store']);
+        Route::get('final-submissions/team/{projectTeam}', [FinalSubmissionController::class, 'showByTeam']);
+    });
+    
+    Route::middleware('role:CommitteeMember')->group(function () {
+        Route::get('final-submissions', [FinalSubmissionController::class, 'index']);
+        Route::post('final-submissions/{finalSubmission}/grade', [FinalSubmissionController::class, 'grade']);
+    });
+});
+});
 });
