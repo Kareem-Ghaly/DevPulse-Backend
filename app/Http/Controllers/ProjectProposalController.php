@@ -79,4 +79,9 @@ class ProjectProposalController extends Controller
     {
         return $this->service->handleDecision($projectProposal, $request->validated());
     }
+    
+    public function approvedProposals()
+    {
+        return $this->service->getApprovedProposalsForSupervisor();
+    }
 }

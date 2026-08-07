@@ -61,7 +61,28 @@ class ProjectProposalResource extends JsonResource
             'supervisor_decided_at' => $this->supervisor_decided_at,
             'last_update' => $this->last_update,
 
-            'team' => $this->whenLoaded('team'),
+            'team' => $this->whenLoaded('team', fn () => $this->team ? [
+                'id' => $this->team->id,
+                'status' => $this->team->status,
+                'project_idea' => $this->team->projectIdea ? [
+                    'id' => $this->team->projectIdea->id,
+                    'title' => $this->team->projectIdea->title,
+                    'abstract' => $this->team->projectIdea->abstract,
+                ] : null,
+                'leader' => $this->team->leader ? [
+                    'id' => $this->team->leader->id,
+                    'name' => $this->team->leader->name,
+                    'email' => $this->team->leader->email,
+                ] : null,
+                'members' => $this->team->members->map(fn ($member) => [
+                    'id' => $member->id,
+                    'user_id' => $member->user_id,
+                    'name' => $member->user?->name,
+                    'email' => $member->user?->email,
+                    'role' => $member->role,
+                ]),
+            ] : null),
+
             'last_updater' => $this->whenLoaded('lastUpdater'),
             'committee_reviews' => $this->whenLoaded('committeeReviews'),
 

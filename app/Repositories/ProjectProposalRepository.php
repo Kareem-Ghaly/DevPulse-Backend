@@ -69,5 +69,5 @@ class ProjectProposalRepository implements ProjectProposalRepositoryInterface
             ->with(['team', 'supervisorUser', 'creator', 'lastUpdater'])
             ->where('project_team_id', $projectTeamId)
             ->first();
-    }
+    } 
 }

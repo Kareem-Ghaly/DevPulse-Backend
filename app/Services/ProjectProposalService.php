@@ -259,4 +259,25 @@ class ProjectProposalService
             ->orWhereHas('members', fn($q) => $q->where('user_id', $user))
             ->first();
     }
+
+    public function getApprovedProposalsForSupervisor(): JsonResponse
+    {
+        $proposals = ProjectProposal::where('supervisor_id', auth()->id())
+            ->whereIn('status', [
+                'supervisor_approved',
+                'submitted_to_committee',
+                'committee_approved',
+                'committee_rejected',
+                'committee_needs_revision',
+            ])
+            ->with(['team.projectIdea', 'team.members.user', 'team.leader', 'creator', 'supervisorUser'])
+            ->latest('supervisor_decided_at')
+            ->paginate(10);
+
+        return $this->paginatedResponse(
+            ProjectProposalResource::collection($proposals),
+            $proposals,
+            'Approved proposals retrieved successfully.'
+        );
+    }
 }

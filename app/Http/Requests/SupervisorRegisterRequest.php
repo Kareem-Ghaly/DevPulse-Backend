@@ -22,6 +22,7 @@ class SupervisorRegisterRequest extends FormRequest
             'specialization' => ['required', 'string'],
             'office_hours' => ['nullable', 'string'],
             'bio' => ['nullable', 'string'],
+            'research_interests' => ['required']
         ];
     }
 }

@@ -33,6 +33,22 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
         ]);
+
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('api') || $request->is('api/*')) {
+                return null;
+            }
+
+            return '/login';
+        });
+
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('api') || $request->is('api/*')) {
+                return null;
+            }
+
+            return '/dashboard';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $isApiRequest = fn (Request $request): bool => $request->is('api') || $request->is('api/*') || $request->expectsJson();
