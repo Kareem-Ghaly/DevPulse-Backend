@@ -67,6 +67,7 @@ class CommitteeProjectProposalService
         $proposal->load(['team', 'committeeReviews.committeeMember']);
 
         $this->broadcastProposalChange($proposal, 'committee_decision');
+        
         $this->notifyCommitteeDecision($proposal);
 
         return $this->successResponse(
@@ -86,6 +87,65 @@ class CommitteeProjectProposalService
             Log::warning('Project proposal broadcast failed', [
                 'proposal_id' => $proposal->id ?? null,
                 'action' => $action,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function notifyCommitteeDecision(ProjectProposal $proposal): void
+    {
+        try {
+            $recipients = collect();
+
+            if ($proposal->team?->leader) {
+                $recipients->push($proposal->team->leader);
+            }
+
+            if ($proposal->team?->members) {
+                foreach ($proposal->team->members as $member) {
+                    if ($member->user && $member->user->id !== $proposal->team?->leader?->id) {
+                        $recipients->push($member->user);
+                    }
+                }
+            }
+
+            if ($recipients->isEmpty()) {
+                return;
+            }
+
+            [$title, $body] = match ($proposal->status) {
+                'committee_approved' => [
+                    'Proposal Approved',
+                    "The project proposal '{$proposal->title}' has been approved by the committee."
+                ],
+                'committee_rejected' => [
+                    'Proposal Rejected',
+                    "The project proposal '{$proposal->title}' has been rejected by the committee."
+                ],
+                'committee_needs_revision' => [
+                    'Proposal Needs Revision',
+                    "The project proposal '{$proposal->title}' requires additional revisions based on committee feedback."
+                ],
+                default => [
+                    'Proposal Status Updated',
+                    "The status of the project proposal '{$proposal->title}' has been updated."
+                ],
+            };
+
+            $this->notifications->sendToUsers(
+                $recipients,
+                $title,
+                $body,
+                [
+                    'type' => 'committee_decision',
+                    'entity_type' => 'project_proposal',
+                    'entity_id' => (string) $proposal->id,
+                    'status' => $proposal->status,
+                ]
+            );
+        } catch (Throwable $e) {
+            Log::warning('Committee decision notification failed', [
+                'proposal_id' => $proposal->id ?? null,
                 'message' => $e->getMessage(),
             ]);
         }

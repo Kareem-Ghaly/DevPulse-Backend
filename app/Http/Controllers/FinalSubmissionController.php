@@ -22,9 +22,19 @@ class FinalSubmissionController extends Controller
         return $this->service->store($validated);
     }
 
+    public function show(FinalSubmission $finalSubmission)
+    {
+        return $this->service->show($finalSubmission);
+    }
+
     public function showByTeam(ProjectTeam $projectTeam)
     {
         return $this->service->showByTeam($projectTeam);
+    }
+
+    public function showForStudent()
+    {
+        return $this->service->showForStudent();
     }
 
     public function index()

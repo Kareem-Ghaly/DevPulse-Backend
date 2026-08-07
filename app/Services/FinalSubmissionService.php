@@ -64,6 +64,34 @@ class FinalSubmissionService
         );
     }
 
+    public function showForStudent(): JsonResponse
+    {
+        $user = auth()->user();
+
+        $team = ProjectTeam::where('leader_id', $user->id)
+            ->orWhereHas('members', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->first();
+
+        if (! $team) {
+            return $this->errorResponse('You are not a member of any project team.', null, 404);
+        }
+
+        $submission = FinalSubmission::where('project_team_id', $team->id)
+            ->with(['team.projectIdea', 'grader'])
+            ->first();
+
+        if (! $submission) {
+            return $this->errorResponse('No final submission found for your team.', null, 404);
+        }
+
+        return $this->successResponse(
+            new FinalSubmissionResource($submission),
+            'Final submission retrieved successfully.'
+        );
+    }
+
     public function index(): JsonResponse
     {
         $submissions = FinalSubmission::with(['team.projectIdea', 'grader'])
@@ -74,6 +102,14 @@ class FinalSubmissionService
             FinalSubmissionResource::collection($submissions),
             $submissions,
             'Submissions retrieved.'
+        );
+    }
+
+    public function show(FinalSubmission $finalSubmission): JsonResponse
+    {
+        return $this->successResponse(
+            new FinalSubmissionResource($finalSubmission->load(['team.projectIdea', 'grader'])),
+            'Submission retrieved.'
         );
     }
 
