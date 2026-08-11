@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('project_proposals', function (Blueprint $table) {
-            // نتحقق أولاً لحمايتك من أي تعارض مستقبلي
+           
             if (!Schema::hasColumn('project_proposals', 'last_updated_by')) {
                 $table->unsignedBigInteger('last_updated_by')->nullable()->after('supervisor');
             }
