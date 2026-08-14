@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Events\ProjectProposalChanged;
 use App\Http\Resources\ProjectProposalResource;
 use App\Interfaces\ProjectProposalCommitteeReviewRepositoryInterface;
@@ -64,11 +65,10 @@ class CommitteeProjectProposalService
         }
 
         $proposal = $this->projectProposals->update($projectProposal, $updateData);
-        $proposal->load(['team', 'committeeReviews.committeeMember']);
+        $proposal->load(['team.members.user', 'team.leader', 'team.projectIdea', 'supervisorUser', 'committeeReviews.committeeMember']);
 
         $this->broadcastProposalChange($proposal, 'committee_decision');
-        
-        $this->notifyCommitteeDecision($proposal);
+        $this->notifyCommitteeDecision($proposal, $review->notes);
 
         return $this->successResponse(
             [
@@ -92,7 +92,7 @@ class CommitteeProjectProposalService
         }
     }
 
-    private function notifyCommitteeDecision(ProjectProposal $proposal): void
+    private function notifyCommitteeDecision(ProjectProposal $proposal, ?string $notes): void
     {
         try {
             $recipients = collect();
@@ -109,26 +109,39 @@ class CommitteeProjectProposalService
                 }
             }
 
+            if ($proposal->supervisorUser) {
+                $recipients->push($proposal->supervisorUser);
+            }
+
+            $recipients = $recipients
+                ->filter(fn ($user): bool => $user && $user->id !== auth()->id())
+                ->unique('id')
+                ->values();
+
             if ($recipients->isEmpty()) {
                 return;
             }
 
-            [$title, $body] = match ($proposal->status) {
+            [$type, $title, $body] = match ($proposal->status) {
                 'committee_approved' => [
+                    NotificationType::CommitteeProposalApproved->value,
                     'Proposal Approved',
-                    "The project proposal '{$proposal->title}' has been approved by the committee."
+                    "The project proposal '{$proposal->title}' has been approved by the committee.",
                 ],
                 'committee_rejected' => [
+                    NotificationType::CommitteeProposalRejected->value,
                     'Proposal Rejected',
-                    "The project proposal '{$proposal->title}' has been rejected by the committee."
+                    "The project proposal '{$proposal->title}' has been rejected by the committee.",
                 ],
                 'committee_needs_revision' => [
+                    NotificationType::CommitteeProposalNeedsRevision->value,
                     'Proposal Needs Revision',
-                    "The project proposal '{$proposal->title}' requires additional revisions based on committee feedback."
+                    "The project proposal '{$proposal->title}' requires additional revisions based on committee feedback.",
                 ],
                 default => [
+                    NotificationType::CommitteeProposalNeedsRevision->value,
                     'Proposal Status Updated',
-                    "The status of the project proposal '{$proposal->title}' has been updated."
+                    "The status of the project proposal '{$proposal->title}' has been updated.",
                 ],
             };
 
@@ -137,10 +150,15 @@ class CommitteeProjectProposalService
                 $title,
                 $body,
                 [
-                    'type' => 'committee_decision',
+                    'type' => $type,
                     'entity_type' => 'project_proposal',
-                    'entity_id' => (string) $proposal->id,
+                    'entity_id' => $proposal->id,
+                    'proposal_id' => $proposal->id,
+                    'team_id' => $proposal->project_team_id,
+                    'project_idea_id' => $proposal->team?->project_idea_id,
                     'status' => $proposal->status,
+                    'notes' => $notes,
+                    'action_url' => '/project-proposals/'.$proposal->id,
                 ]
             );
         } catch (Throwable $e) {

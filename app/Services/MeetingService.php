@@ -2,11 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Http\Resources\MeetingResource;
 use App\Models\Meeting;
 use App\Models\ProjectTeam;
-use App\Models\User;
-use App\Notifications\DatabaseFirebaseNotification;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -14,6 +13,8 @@ use Illuminate\Support\Str;
 class MeetingService
 {
     use ApiResponse;
+
+    public function __construct(private readonly NotificationService $notifications) {}
 
     public function index(ProjectTeam $projectTeam): JsonResponse
     {
@@ -32,7 +33,7 @@ class MeetingService
     public function store(array $data): JsonResponse
     {
         $user = auth()->user();
-        $team = ProjectTeam::with(['members.user', 'leader', 'proposal.supervisorUser'])
+        $team = ProjectTeam::with(['members.user', 'leader', 'proposal.supervisorUser', 'projectIdea'])
             ->findOrFail($data['project_team_id']);
 
         $notifyUsers = collect();
@@ -49,8 +50,7 @@ class MeetingService
             if ($team->leader) {
                 $notifyUsers->push($team->leader);
             }
-        }
-        elseif ($user->hasRole('Student')) {
+        } elseif ($user->hasRole('Student')) {
             $isMember = (int) $team->leader_id === $user->id
                 || $team->members()->where('user_id', $user->id)->exists();
 
@@ -59,32 +59,33 @@ class MeetingService
             }
 
             $data['scheduler_role'] = 'student';
-            
+
             if ($team->proposal?->supervisorUser) {
                 $notifyUsers->push($team->proposal->supervisorUser);
             }
-        }
-        else {
+        } else {
             return $this->errorResponse('Unauthorized.', null, 403);
         }
 
         $data['scheduled_by'] = $user->id;
-        $data['meeting_link'] = 'https://meet.jit.si/' . Str::slug($team->projectIdea?->title ?? 'meeting') . '-' . Str::random(8);
+        $data['meeting_link'] = 'https://meet.jit.si/'.Str::slug($team->projectIdea?->title ?? 'meeting').'-'.Str::random(8);
 
         $meeting = Meeting::create($data);
 
-        foreach ($notifyUsers->unique('id')->filter() as $notifyUser) {
-            $notifyUser->notify(new DatabaseFirebaseNotification(
-                title: 'New Meeting Scheduled',
-                body: "'{$meeting->title}' at " . $meeting->scheduled_at->format('M d, Y H:i'),
-                data: [
-                    'type' => 'meeting_scheduled',
-                    'action_url' => "/meetings?team={$team->id}",
-                    'entity_type' => 'meeting',
-                    'entity_id' => $meeting->id,
-                ]
-            ));
-        }
+        $this->notifications->sendToUsers(
+            $notifyUsers->filter(fn ($notifyUser): bool => $notifyUser && $notifyUser->id !== $user->id),
+            'New Meeting Scheduled',
+            "'{$meeting->title}' at ".$meeting->scheduled_at->format('M d, Y H:i'),
+            [
+                'type' => NotificationType::MeetingScheduled->value,
+                'entity_type' => 'meeting',
+                'entity_id' => $meeting->id,
+                'meeting_id' => $meeting->id,
+                'team_id' => $team->id,
+                'project_idea_id' => $team->project_idea_id,
+                'action_url' => "/meetings?team={$team->id}",
+            ]
+        );
 
         return $this->successResponse(
             new MeetingResource($meeting),

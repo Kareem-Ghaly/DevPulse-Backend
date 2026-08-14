@@ -1,11 +1,13 @@
 <?php
+
 namespace App\Services;
 
+use App\Enums\NotificationType;
+use App\Enums\UserRole;
 use App\Http\Resources\FinalSubmissionResource;
+use App\Interfaces\UserRepositoryInterface;
 use App\Models\FinalSubmission;
 use App\Models\ProjectTeam;
-use App\Models\User;
-use App\Notifications\DatabaseFirebaseNotification;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -13,16 +15,21 @@ class FinalSubmissionService
 {
     use ApiResponse;
 
+    public function __construct(
+        private readonly UserRepositoryInterface $users,
+        private readonly NotificationService $notifications,
+    ) {}
+
     public function store(array $data): JsonResponse
     {
-        $team = ProjectTeam::find($data['project_team_id']);
-        
-        if (!$team || $team->leader_id !== auth()->id()) {
+        $team = ProjectTeam::with('projectIdea')->find($data['project_team_id']);
+
+        if (! $team || $team->leader_id !== auth()->id()) {
             return $this->errorResponse('Only team leader can submit.', null, 403);
         }
 
         $existing = FinalSubmission::where('project_team_id', $team->id)->first();
-        
+
         if ($existing) {
             $existing->update($data);
             $submission = $existing->fresh();
@@ -30,20 +37,20 @@ class FinalSubmissionService
             $submission = FinalSubmission::create($data + ['status' => 'submitted']);
         }
 
-        User::whereHas('roles', fn($q) => $q->where('name', 'CommitteeMember'))->chunk(50, function ($members) use ($team, $submission) {
-            foreach ($members as $member) {
-                $member->notify(new DatabaseFirebaseNotification(
-                    title: 'Final Submission Received',
-                    body: "Team: {$team->projectIdea?->title}",
-                    data: [
-                        'type' => 'final_submission',
-                        'action_url' => '/committee/final-submissions',
-                        'entity_type' => 'final_submission',
-                        'entity_id' => $submission->id,
-                    ]
-                ));
-            }
-        });
+        $this->notifications->sendToUsers(
+            $this->users->getActiveUsersByRole(UserRole::CommitteeMember->value),
+            'Final Submission Received',
+            "Team: {$team->projectIdea?->title}",
+            [
+                'type' => NotificationType::FinalSubmissionReceived->value,
+                'entity_type' => 'final_submission',
+                'entity_id' => $submission->id,
+                'final_submission_id' => $submission->id,
+                'team_id' => $team->id,
+                'project_idea_id' => $team->project_idea_id,
+                'action_url' => '/committee/final-submissions',
+            ]
+        );
 
         return $this->successResponse(
             new FinalSubmissionResource($submission->load('team.projectIdea')),
@@ -69,7 +76,7 @@ class FinalSubmissionService
         $user = auth()->user();
 
         $team = ProjectTeam::where('leader_id', $user->id)
-            ->orWhereHas('members', function ($query) use ($user) {
+            ->orWhereHas('members', function ($query) use ($user): void {
                 $query->where('user_id', $user->id);
             })
             ->first();
@@ -132,20 +139,25 @@ class FinalSubmissionService
             'graded_at' => now(),
         ]);
 
-        $leader = $finalSubmission->team->leader;
-        if ($leader) {
-            $leader->notify(new DatabaseFirebaseNotification(
-                title: 'Final Submission Graded',
-                body: "Total: {$finalSubmission->fresh()->total_grade}/300",
-                data: [
-                    'type' => 'final_submission_graded',
-                    'action_url' => "/student/project-work-space/{$finalSubmission->team->project_idea_id}/final-submission",
-                ]
-            ));
+        $finalSubmission = $finalSubmission->fresh(['team.leader', 'team.projectIdea']);
+        $leader = $finalSubmission->team?->leader;
+
+        if ($leader && $leader->id !== auth()->id()) {
+            $this->notifications->sendToUser($leader, 'Final Submission Graded', "Total: {$finalSubmission->total_grade}/300", [
+                'type' => NotificationType::FinalSubmissionGraded->value,
+                'entity_type' => 'final_submission',
+                'entity_id' => $finalSubmission->id,
+                'final_submission_id' => $finalSubmission->id,
+                'team_id' => $finalSubmission->project_team_id,
+                'project_idea_id' => $finalSubmission->team?->project_idea_id,
+                'evaluation_id' => $finalSubmission->id,
+                'status' => $finalSubmission->status,
+                'action_url' => "/student/project-work-space/{$finalSubmission->team?->project_idea_id}/final-submission",
+            ]);
         }
 
         return $this->successResponse(
-            new FinalSubmissionResource($finalSubmission->fresh()),
+            new FinalSubmissionResource($finalSubmission),
             'Graded successfully.'
         );
     }

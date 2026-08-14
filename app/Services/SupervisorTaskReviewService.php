@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Events\TaskChanged;
 use App\Http\Resources\TaskResource;
 use App\Interfaces\TaskRepositoryInterface;
@@ -122,11 +123,15 @@ class SupervisorTaskReviewService
         }
 
         $this->notifications->sendToUser($task->assignedUser, 'Task review added', "A supervisor added a review to your task: {$task->title}.", [
-            'type' => 'task_review_added',
+            'type' => NotificationType::TaskReviewAdded->value,
             'entity_type' => 'task',
             'entity_id' => $task->id,
+            'task_id' => $task->id,
+            'team_id' => $task->project_team_id,
+            'action_url' => '/tasks/'.$task->id,
         ]);
     }
+
     private function broadcastTaskReviewed(Task $task, TaskReview $review): void
     {
         try {

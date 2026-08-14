@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Exception\Messaging\InvalidMessage;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FirebaseNotification;
 use Kreait\Laravel\Firebase\Facades\Firebase;
@@ -19,7 +20,29 @@ class NotificationService
 {
     use ApiResponse;
 
-    private const DATA_KEYS = ['title', 'body', 'type', 'entity_type', 'entity_id', 'action_url'];
+    private const DATA_KEYS = [
+        'title',
+        'body',
+        'type',
+        'recipient_id',
+        'entity_type',
+        'entity_id',
+        'project_idea_id',
+        'join_request_id',
+        'team_id',
+        'proposal_id',
+        'task_id',
+        'meeting_id',
+        'evaluation_id',
+        'final_submission_id',
+        'user_id',
+        'role',
+        'status',
+        'notes',
+        'reason',
+        'action_url',
+        'created_at',
+    ];
 
     public function saveFirebaseToken(User $user, array $data): JsonResponse
     {
@@ -107,7 +130,7 @@ class NotificationService
 
     public function sendToUser(User $user, string $title, string $body, array $data = []): void
     {
-        $data = $this->normalizeData($title, $body, $data);
+        $data = $this->normalizeData($user, $title, $body, $data);
 
         $user->notify(new DatabaseFirebaseNotification($title, $body, $data));
 
@@ -146,7 +169,8 @@ class NotificationService
 
         foreach ($tokens as $token) {
             try {
-                $message = CloudMessage::withTarget('token', $token->token)
+                $message = CloudMessage::new()
+                    ->toToken($token->token)
                     ->withNotification(FirebaseNotification::create($title, $body))
                     ->withData($data);
 
@@ -178,23 +202,40 @@ class NotificationService
             // Logging must never break the business action.
         }
     }
-    private function normalizeData(string $title, string $body, array $data): array
+
+    private function normalizeData(User $user, string $title, string $body, array $data): array
     {
         $data = [
             'title' => $title,
             'body' => $body,
+            'type' => $data['type'] ?? 'general',
+            'recipient_id' => $user->id,
+            'created_at' => $data['created_at'] ?? now()->toIso8601String(),
             ...array_intersect_key($data, array_flip(self::DATA_KEYS)),
         ];
 
         return collect($data)
             ->filter(fn ($value): bool => $value !== null)
-            ->map(fn ($value): string => (string) $value)
+            ->map(fn ($value): string => $this->stringifyPayloadValue($value))
             ->all();
+    }
+
+    private function stringifyPayloadValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
     }
 
     private function isInvalidFirebaseTokenException(Throwable $e): bool
     {
-        if (class_exists('Kreait\\Firebase\\Exception\\Messaging\\InvalidMessage') && $e instanceof \Kreait\Firebase\Exception\Messaging\InvalidMessage) {
+        if (class_exists('Kreait\\Firebase\\Exception\\Messaging\\InvalidMessage') && $e instanceof InvalidMessage) {
             return true;
         }
 
@@ -216,5 +257,4 @@ class NotificationService
             'created_at' => $notification->created_at,
         ];
     }
-
 }

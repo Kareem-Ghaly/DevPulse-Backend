@@ -82,6 +82,15 @@ class UserRepository implements UserRepositoryInterface
             ->get();
     }
 
+    public function getActiveUsersByRole(string $role): Collection
+    {
+        return User::query()
+            ->with('roles')
+            ->where('status', 'active')
+            ->role($role)
+            ->get();
+    }
+
     public function linkProviderToUser(User $user, string $provider, string $providerId, ?string $avatar): User
     {
         $user->forceFill([

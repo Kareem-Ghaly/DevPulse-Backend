@@ -28,6 +28,8 @@ interface UserRepositoryInterface
 
     public function getPendingApprovalUsers(): Collection;
 
+    public function getActiveUsersByRole(string $role): Collection;
+
     public function linkProviderToUser(User $user, string $provider, string $providerId, ?string $avatar): User;
 
     public function createSocialUser(array $data): User;

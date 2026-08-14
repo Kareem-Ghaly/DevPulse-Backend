@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Http\Resources\UserResource;
@@ -11,7 +12,10 @@ use Illuminate\Http\JsonResponse;
 
 class AdminUserApprovalService extends BaseService
 {
-    public function __construct(private readonly UserRepositoryInterface $users) {}
+    public function __construct(
+        private readonly UserRepositoryInterface $users,
+        private readonly NotificationService $notifications,
+    ) {}
 
     public function pendingUsers(): JsonResponse
     {
@@ -42,6 +46,7 @@ class AdminUserApprovalService extends BaseService
         }
 
         $user = $this->users->updateStatus($user, UserStatus::ACTIVE->value);
+        $this->notifyAccountStatusChanged($user, NotificationType::AccountApproved->value, 'Account approved', 'Your DevPulse account has been approved.');
 
         return $this->successResponse(new UserResource($user), 'User approved successfully');
     }
@@ -73,6 +78,7 @@ class AdminUserApprovalService extends BaseService
         }
 
         $user = $this->users->updateStatus($user, UserStatus::REJECTED->value);
+        $this->notifyAccountStatusChanged($user, NotificationType::AccountRejected->value, 'Account rejected', 'Your DevPulse account has been rejected by admin.');
 
         return $this->successResponse(new UserResource($user), 'User rejected successfully');
     }
@@ -82,6 +88,18 @@ class AdminUserApprovalService extends BaseService
         return $user->hasAnyRole([
             UserRole::Supervisor->value,
             UserRole::CommitteeMember->value,
+        ]);
+    }
+
+    private function notifyAccountStatusChanged(User $user, string $type, string $title, string $body): void
+    {
+        $this->notifications->sendToUser($user, $title, $body, [
+            'type' => $type,
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'user_id' => $user->id,
+            'status' => $user->status,
+            'action_url' => '/auth/login',
         ]);
     }
 }

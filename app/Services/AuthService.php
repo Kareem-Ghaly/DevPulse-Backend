@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Enums\SocialProvider;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
@@ -10,6 +11,7 @@ use App\Interfaces\UserRepositoryInterface;
 use App\Models\User;
 use GuzzleHttp\Client;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -20,7 +22,7 @@ class AuthService extends BaseService
 {
     private Client $httpClient;
 
-    public function __construct(private readonly UserRepositoryInterface $users)
+    public function __construct(private readonly UserRepositoryInterface $users, private readonly NotificationService $notifications)
     {
         $isLocal = app()->environment('local', 'development', 'testing');
         $this->httpClient = new Client([
@@ -41,6 +43,7 @@ class AuthService extends BaseService
     public function registerSupervisor(array $data): JsonResponse
     {
         $user = $this->registerUserWithProfile($data, UserRole::Supervisor, UserStatus::PENDING);
+        $this->notifyAdminsAboutPendingApproval($user, UserRole::Supervisor);
 
         return $this->successResponse([
             'user' => new UserResource($user),
@@ -50,6 +53,7 @@ class AuthService extends BaseService
     public function registerCommitteeMember(array $data): JsonResponse
     {
         $user = $this->registerUserWithProfile($data, UserRole::CommitteeMember, UserStatus::PENDING);
+        $this->notifyAdminsAboutPendingApproval($user, UserRole::CommitteeMember);
 
         return $this->successResponse([
             'user' => new UserResource($user),
@@ -141,7 +145,7 @@ class AuthService extends BaseService
         ], 'Redirect URL generated successfully');
     }
 
-    public function handleProviderCallback(string $provider): \Illuminate\Http\RedirectResponse|JsonResponse
+    public function handleProviderCallback(string $provider): RedirectResponse|JsonResponse
     {
         if (! SocialProvider::isSupported($provider)) {
             return $this->errorResponse('Unsupported social provider.', [
@@ -155,7 +159,7 @@ class AuthService extends BaseService
                 ->setHttpClient($this->httpClient)
                 ->user();
         } catch (\Exception $e) {
-            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode($e->getMessage()));
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?error='.urlencode($e->getMessage()));
         }
 
         $providerId = (string) $providerUser->getId();
@@ -171,7 +175,7 @@ class AuthService extends BaseService
 
         if ($user) {
             if ($user->hasRole(UserRole::Admin->value)) {
-                return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Admin accounts cannot use social login.'));
+                return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?error='.urlencode('Admin accounts cannot use social login.'));
             }
 
             $user = $this->users->linkProviderToUser($user, $provider, $providerId, $providerUser->getAvatar());
@@ -182,10 +186,14 @@ class AuthService extends BaseService
         $userRole = $this->socialRoleFromSlug($role);
 
         if (! $userRole) {
-            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Role is required for first social registration.'));
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?error='.urlencode('Role is required for first social registration.'));
         }
 
         $user = $this->createSocialUserWithProfile($providerUser, $provider, $providerId, $userRole);
+
+        if ($user->status === UserStatus::PENDING->value) {
+            $this->notifyAdminsAboutPendingApproval($user, $userRole);
+        }
 
         return $this->socialLoginRedirect($user, true);
     }
@@ -203,12 +211,12 @@ class AuthService extends BaseService
         return $this->successResponse(null, 'Logged out successfully');
     }
 
-    private function socialLoginRedirect(User $user, bool $isNewRegistration): \Illuminate\Http\RedirectResponse
+    private function socialLoginRedirect(User $user, bool $isNewRegistration): RedirectResponse
     {
         $user = $this->users->loadProfile($user);
 
         if ($user->hasRole(UserRole::Admin->value)) {
-            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Admin accounts cannot use social login.'));
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?error='.urlencode('Admin accounts cannot use social login.'));
         }
 
         if ($user->status === UserStatus::PENDING->value) {
@@ -216,11 +224,11 @@ class AuthService extends BaseService
                 ? 'Your account has been created and is waiting for admin approval.'
                 : 'Your account is waiting for admin approval.';
 
-            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?status=pending&message=' . urlencode($message));
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?status=pending&message='.urlencode($message));
         }
 
         if ($user->status === UserStatus::REJECTED->value) {
-            return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?error=' . urlencode('Your account has been rejected by admin.'));
+            return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?error='.urlencode('Your account has been rejected by admin.'));
         }
 
         $this->users->markLastLogin($user);
@@ -235,7 +243,7 @@ class AuthService extends BaseService
             'profile_completed' => $user->profile_completed ? '1' : '0',
         ]);
 
-        return redirect()->away(config('app.frontend_url', 'http://localhost:3000') . '/auth/callback?' . $queryParams);
+        return redirect()->away(config('app.frontend_url', 'http://localhost:3000').'/auth/callback?'.$queryParams);
     }
 
     public function me(): JsonResponse
@@ -247,8 +255,31 @@ class AuthService extends BaseService
         }
 
         $user = $this->users->loadProfile($user);
-        
+
         return $this->successResponse(new UserResource($user), 'Authenticated user retrieved successfully');
+    }
+
+    private function notifyAdminsAboutPendingApproval(User $user, UserRole $role): void
+    {
+        if (! in_array($role, [UserRole::Supervisor, UserRole::CommitteeMember], true)) {
+            return;
+        }
+
+        $admins = $this->users->getActiveUsersByRole(UserRole::Admin->value);
+
+        $this->notifications->sendToUsers(
+            $admins,
+            'New account pending approval',
+            "{$user->name} registered as {$role->value} and needs admin approval.",
+            [
+                'type' => NotificationType::AccountPendingApproval->value,
+                'entity_type' => 'user',
+                'entity_id' => $user->id,
+                'user_id' => $user->id,
+                'role' => $role->value,
+                'action_url' => '/admin/users/pending',
+            ]
+        );
     }
 
     private function registerUserWithProfile(array $data, UserRole $role, UserStatus $status): User

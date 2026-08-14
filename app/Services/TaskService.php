@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Events\TaskChanged;
 use App\Http\Resources\TaskAttachmentResource;
 use App\Http\Resources\TaskLinkResource;
@@ -106,6 +107,8 @@ class TaskService
         }
 
         $previousAssignedTo = $task->assigned_to;
+        $previousPriority = $task->priority;
+        $previousDueDate = $task->due_date?->toDateString();
 
         if (array_key_exists('status', $data)) {
             $data['completed_at'] = $data['status'] === 'done' ? now() : null;
@@ -120,6 +123,8 @@ class TaskService
         if (array_key_exists('assigned_to', $data) && (int) $previousAssignedTo !== (int) $task->assigned_to) {
             $this->notifyTaskAssigned($task);
         }
+
+        $this->notifyTaskImportantUpdates($task, $data, $previousPriority, $previousDueDate);
 
         return $this->successResponse([
             'task' => new TaskResource($task),
@@ -354,9 +359,45 @@ class TaskService
         }
 
         $this->notifications->sendToUser($task->assignedUser, 'Task assigned', "You were assigned a task: {$task->title}.", [
-            'type' => 'task_assigned',
+            'type' => NotificationType::TaskAssigned->value,
             'entity_type' => 'task',
             'entity_id' => $task->id,
+            'task_id' => $task->id,
+            'team_id' => $task->project_team_id,
+            'action_url' => '/tasks/'.$task->id,
+        ]);
+    }
+
+    private function notifyTaskImportantUpdates(Task $task, array $data, ?string $previousPriority, ?string $previousDueDate): void
+    {
+        $task->loadMissing('assignedUser');
+
+        if (! $task->assignedUser || $task->assigned_to === auth()->id()) {
+            return;
+        }
+
+        $changes = [];
+
+        if (array_key_exists('priority', $data) && $previousPriority !== $task->priority) {
+            $changes[] = "priority changed to {$task->priority}";
+        }
+
+        if (array_key_exists('due_date', $data) && $previousDueDate !== $task->due_date?->toDateString()) {
+            $changes[] = 'due date changed to '.($task->due_date?->toDateString() ?? 'not set');
+        }
+
+        if ($changes === []) {
+            return;
+        }
+
+        $this->notifications->sendToUser($task->assignedUser, 'Task updated', "Task updated: {$task->title} (".implode(', ', $changes).').', [
+            'type' => NotificationType::TaskUpdated->value,
+            'entity_type' => 'task',
+            'entity_id' => $task->id,
+            'task_id' => $task->id,
+            'team_id' => $task->project_team_id,
+            'priority' => $task->priority,
+            'action_url' => '/tasks/'.$task->id,
         ]);
     }
 
@@ -387,11 +428,16 @@ class TaskService
         $users = $users->filter(fn ($user): bool => $user && $user->id !== $actorId);
 
         $this->notifications->sendToUsers($users, 'Task status changed', "Task status changed: {$task->title}.", [
-            'type' => 'task_status_changed',
+            'type' => NotificationType::TaskStatusChanged->value,
             'entity_type' => 'task',
             'entity_id' => $task->id,
+            'task_id' => $task->id,
+            'team_id' => $task->project_team_id,
+            'status' => $task->status,
+            'action_url' => '/tasks/'.$task->id,
         ]);
     }
+
     private function broadcastTaskChange(
         string $action,
         int $projectTeamId,

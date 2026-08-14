@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
 use App\Enums\UserRole;
 use App\Http\Resources\ProjectInvitationResource;
 use App\Interfaces\ProjectIdeaRepositoryInterface;
@@ -62,9 +63,12 @@ class ProjectInvitationService extends BaseService
             'Project team invitation',
             "You were invited to join {$projectIdea->title}.",
             [
-                'type' => 'team_invitation_sent',
+                'type' => NotificationType::TeamInvitationSent->value,
                 'entity_type' => 'project_join_request',
                 'entity_id' => $invitation->id,
+                'project_idea_id' => $projectIdea->id,
+                'join_request_id' => $invitation->id,
+                'action_url' => '/my-invitations',
             ]
         );
 
@@ -134,24 +138,28 @@ class ProjectInvitationService extends BaseService
         $invitation->loadMissing(['projectIdea.owner', 'receiver']);
         $owner = $invitation->projectIdea?->owner;
 
-        if ($owner) {
+        if ($owner && $owner->id !== auth()->id()) {
             $this->notifications->sendToUser(
                 $owner,
                 $status === 'accepted' ? 'Invitation accepted' : 'Invitation rejected',
                 "{$invitation->receiver?->name} {$status} your project team invitation.",
                 [
-                    'type' => $status === 'accepted' ? 'team_invitation_accepted' : 'team_invitation_rejected',
+                    'type' => $status === 'accepted' ? NotificationType::TeamInvitationAccepted->value : NotificationType::TeamInvitationRejected->value,
                     'entity_type' => 'project_join_request',
                     'entity_id' => $invitation->id,
+                    'project_idea_id' => $invitation->project_idea_id,
+                    'join_request_id' => $invitation->id,
+                    'team_id' => $team?->id,
+                    'action_url' => '/project-ideas/'.$invitation->project_idea_id.'/team',
                 ]
             );
         }
 
         if ($status === 'accepted' && $team?->status === 'completed') {
             $team->loadMissing(['members.user', 'leader']);
-            $members = $team->members->pluck('user')->filter();
+            $members = $team->members->pluck('user')->filter(fn ($user): bool => $user && $user->id !== auth()->id());
 
-            if ($team->leader) {
+            if ($team->leader && $team->leader->id !== auth()->id()) {
                 $members->push($team->leader);
             }
 
@@ -160,9 +168,12 @@ class ProjectInvitationService extends BaseService
                 'Project team completed',
                 'Your project team is now complete.',
                 [
-                    'type' => 'team_completed',
+                    'type' => NotificationType::TeamCompleted->value,
                     'entity_type' => 'project_team',
                     'entity_id' => $team->id,
+                    'project_idea_id' => $team->project_idea_id,
+                    'team_id' => $team->id,
+                    'action_url' => '/project-ideas/'.$team->project_idea_id.'/team',
                 ]
             );
         }

@@ -2,28 +2,35 @@
 
 namespace App\Services;
 
+use App\Enums\NotificationType;
+use App\Enums\UserRole;
 use App\Events\ProjectProposalChanged;
 use App\Http\Resources\ProjectProposalResource;
 use App\Interfaces\ProjectProposalRepositoryInterface;
+use App\Interfaces\UserRepositoryInterface;
 use App\Models\ProjectProposal;
 use App\Models\ProjectTeam;
 use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
-use Throwable;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectProposalService
 {
     use ApiResponse;
 
     public function __construct(
-        private readonly ProjectProposalRepositoryInterface $repository
+        private readonly ProjectProposalRepositoryInterface $repository,
+        private readonly UserRepositoryInterface $users,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function index()
     {
         $proposals = $this->repository->all();
+
         return $this->successResponse(
             ProjectProposalResource::collection($proposals),
             'Project proposals retrieved successfully'
@@ -31,57 +38,57 @@ class ProjectProposalService
     }
 
     public function store(array $data)
-{
-    $teamId = $data['project_team_id'] ?? null;
-    
-    if ($teamId) {
-        $team = ProjectTeam::find($teamId);
-        if ($team && !($team->leader_id === auth()->id() || $team->members()->where('user_id', auth()->id())->exists())) {
-            $team = null;
-        }
-    } else {
-        $team = $this->getUserTeam();
-    }
-    
-    if (!$team) {
-        return $this->errorResponse('You must belong to a project team.', null, 422);
-    }
+    {
+        $teamId = $data['project_team_id'] ?? null;
 
-    $existing = ProjectProposal::where('project_team_id', $team->id)->first();
-    if ($existing) {
-        return $this->errorResponse(
-            'Team already has a proposal', 
-            ['proposal_id' => $existing->id], 
-            422
+        if ($teamId) {
+            $team = ProjectTeam::find($teamId);
+            if ($team && ! ($team->leader_id === auth()->id() || $team->members()->where('user_id', auth()->id())->exists())) {
+                $team = null;
+            }
+        } else {
+            $team = $this->getUserTeam();
+        }
+
+        if (! $team) {
+            return $this->errorResponse('You must belong to a project team.', null, 422);
+        }
+
+        $existing = ProjectProposal::where('project_team_id', $team->id)->first();
+        if ($existing) {
+            return $this->errorResponse(
+                'Team already has a proposal',
+                ['proposal_id' => $existing->id],
+                422
+            );
+        }
+
+        $data['project_team_id'] = $team->id;
+        $data['created_by'] = auth()->id();
+        $data['last_updated_by'] = auth()->id();
+
+        if (isset($data['mind_map_problem'])) {
+            $data['mind_map_problem'] = $data['mind_map_problem']
+                ->store('project-proposals/mind-map-problem', 'public');
+        }
+        if (isset($data['mind_map_solution'])) {
+            $data['mind_map_solution'] = $data['mind_map_solution']
+                ->store('project-proposals/mind-map-solution', 'public');
+        }
+
+        $data['status'] = $data['status'] ?? 'draft';
+        $data['last_update'] = now();
+
+        $proposal = $this->repository->create($data);
+
+        broadcast(new ProjectProposalChanged($proposal, 'created'))->toOthers();
+
+        return $this->successResponse(
+            ['proposal' => new ProjectProposalResource($proposal)],
+            'Project proposal created successfully',
+            201
         );
     }
-
-    $data['project_team_id'] = $team->id;
-    $data['created_by'] = auth()->id();
-    $data['last_updated_by'] = auth()->id();
-
-    if (isset($data['mind_map_problem'])) {
-        $data['mind_map_problem'] = $data['mind_map_problem']
-            ->store('project-proposals/mind-map-problem', 'public');
-    }
-    if (isset($data['mind_map_solution'])) {
-        $data['mind_map_solution'] = $data['mind_map_solution']
-            ->store('project-proposals/mind-map-solution', 'public');
-    }
-
-    $data['status'] = $data['status'] ?? 'draft';
-    $data['last_update'] = now();
-
-    $proposal = $this->repository->create($data);
-
-    broadcast(new ProjectProposalChanged($proposal, 'created'))->toOthers();
-
-    return $this->successResponse(
-        ['proposal' => new ProjectProposalResource($proposal)],
-        'Project proposal created successfully',
-        201
-    );
-}
 
     public function show(ProjectProposal $projectProposal)
     {
@@ -105,15 +112,11 @@ class ProjectProposalService
 
     public function update(ProjectProposal $projectProposal, array $data)
     {
-        \Log::info('Data received in service:', $data);
-    \Log::info('Is UploadedFile:', [
-        'problem' => isset($data['mind_map_problem']) ? get_class($data['mind_map_problem']) : 'not set'
-    ]);
         $data['last_updated_by'] = auth()->id();
 
-        if (isset($data['mind_map_problem']) && $data['mind_map_problem'] instanceof \Illuminate\Http\UploadedFile) {
+        if (isset($data['mind_map_problem']) && $data['mind_map_problem'] instanceof UploadedFile) {
             if ($projectProposal->mind_map_problem) {
-                \Storage::disk('public')->delete($projectProposal->mind_map_problem);
+                Storage::disk('public')->delete($projectProposal->mind_map_problem);
             }
             $data['mind_map_problem'] = $data['mind_map_problem']
                 ->store('project-proposals/mind-map-problem', 'public');
@@ -121,9 +124,9 @@ class ProjectProposalService
             unset($data['mind_map_problem']);
         }
 
-        if (isset($data['mind_map_solution']) && $data['mind_map_solution'] instanceof \Illuminate\Http\UploadedFile) {
+        if (isset($data['mind_map_solution']) && $data['mind_map_solution'] instanceof UploadedFile) {
             if ($projectProposal->mind_map_solution) {
-                \Storage::disk('public')->delete($projectProposal->mind_map_solution);
+                Storage::disk('public')->delete($projectProposal->mind_map_solution);
             }
             $data['mind_map_solution'] = $data['mind_map_solution']
                 ->store('project-proposals/mind-map-solution', 'public');
@@ -134,8 +137,6 @@ class ProjectProposalService
         $data['last_update'] = now();
 
         $proposal = $this->repository->update($projectProposal, $data);
-        
-        $proposal->refresh();
         $proposal->load(['team', 'committeeReviews.committeeMember']);
 
         broadcast(new ProjectProposalChanged($proposal, 'updated'))->toOthers();
@@ -169,17 +170,20 @@ class ProjectProposalService
                 422
             );
         }
+
         $updateData = [
             'status' => 'submitted',
             'supervisor_id' => $data['supervisor_id'],
-            'supervisor' => $data['supervisor_id'], 
+            'supervisor' => $data['supervisor_id'],
             'last_updated_by' => auth()->id(),
             'last_update' => now(),
         ];
 
         $proposal = $this->repository->update($projectProposal, $updateData);
+        $proposal->load(['team.projectIdea', 'supervisorUser']);
 
         broadcast(new ProjectProposalChanged($proposal, 'submitted'))->toOthers();
+        $this->notifySupervisorAboutProposalSubmission($proposal);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -211,9 +215,10 @@ class ProjectProposalService
         }
 
         $proposal = $this->repository->update($projectProposal, $updateData);
-        $proposal->load(['team', 'committeeReviews.committeeMember']);
+        $proposal->load(['team.members.user', 'team.leader', 'team.projectIdea', 'committeeReviews.committeeMember']);
 
         broadcast(new ProjectProposalChanged($proposal, 'supervisor_decision'))->toOthers();
+        $this->notifyTeamAboutSupervisorDecision($proposal, $data['notes'] ?? null);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -233,9 +238,10 @@ class ProjectProposalService
         }
 
         $proposal = $this->repository->update($projectProposal, $updateData);
-        $proposal->load(['team', 'committeeReviews.committeeMember']);
+        $proposal->load(['team.projectIdea', 'committeeReviews.committeeMember']);
 
         broadcast(new ProjectProposalChanged($proposal, 'submitted_to_committee'))->toOthers();
+        $this->notifyCommitteeAboutProposal($proposal);
 
         return $this->successResponse(
             ['proposal' => new ProjectProposalResource($proposal)],
@@ -246,18 +252,11 @@ class ProjectProposalService
     public function getSupervisorIncomingProposals(): JsonResponse
     {
         $proposals = $this->repository->getForSupervisor(auth()->id());
+
         return $this->successResponse(
             ProjectProposalResource::collection($proposals),
             'Supervisor proposals retrieved.'
         );
-    }
-
-    private function getUserTeam(): ?ProjectTeam
-    {
-        $user = auth()->id();
-        return ProjectTeam::where('leader_id', $user)
-            ->orWhereHas('members', fn($q) => $q->where('user_id', $user))
-            ->first();
     }
 
     public function getApprovedProposalsForSupervisor(): JsonResponse
@@ -279,5 +278,109 @@ class ProjectProposalService
             $proposals,
             'Approved proposals retrieved successfully.'
         );
+    }
+
+    private function getUserTeam(): ?ProjectTeam
+    {
+        $user = auth()->id();
+
+        return ProjectTeam::where('leader_id', $user)
+            ->orWhereHas('members', fn ($q) => $q->where('user_id', $user))
+            ->first();
+    }
+
+    private function notifySupervisorAboutProposalSubmission(ProjectProposal $proposal): void
+    {
+        if (! $proposal->supervisorUser || $proposal->supervisorUser->id === auth()->id()) {
+            return;
+        }
+
+        $this->notifications->sendToUser($proposal->supervisorUser, 'Supervisor request received', "A proposal was submitted for your review: {$proposal->title}.", [
+            'type' => NotificationType::SupervisorRequestSubmitted->value,
+            'entity_type' => 'project_proposal',
+            'entity_id' => $proposal->id,
+            'proposal_id' => $proposal->id,
+            'team_id' => $proposal->project_team_id,
+            'project_idea_id' => $proposal->team?->project_idea_id,
+            'status' => $proposal->status,
+            'action_url' => '/supervisor/project-proposals',
+        ]);
+    }
+
+    private function notifyTeamAboutSupervisorDecision(ProjectProposal $proposal, ?string $notes): void
+    {
+        $recipients = $this->teamRecipients($proposal->team, auth()->id());
+
+        if ($recipients->isEmpty()) {
+            return;
+        }
+
+        [$type, $title, $body] = match ($proposal->status) {
+            'supervisor_approved' => [
+                NotificationType::SupervisorProposalApproved->value,
+                'Proposal approved by supervisor',
+                "Your proposal '{$proposal->title}' was approved by the supervisor.",
+            ],
+            'supervisor_rejected' => [
+                NotificationType::SupervisorProposalRejected->value,
+                'Proposal rejected by supervisor',
+                "Your proposal '{$proposal->title}' was rejected by the supervisor.",
+            ],
+            default => [
+                NotificationType::SupervisorProposalNeedsRevision->value,
+                'Proposal needs revision',
+                "Your proposal '{$proposal->title}' needs revisions from the supervisor.",
+            ],
+        };
+
+        $this->notifications->sendToUsers($recipients, $title, $body, [
+            'type' => $type,
+            'entity_type' => 'project_proposal',
+            'entity_id' => $proposal->id,
+            'proposal_id' => $proposal->id,
+            'team_id' => $proposal->project_team_id,
+            'project_idea_id' => $proposal->team?->project_idea_id,
+            'status' => $proposal->status,
+            'notes' => $notes,
+            'action_url' => '/project-proposals/'.$proposal->id,
+        ]);
+    }
+
+    private function notifyCommitteeAboutProposal(ProjectProposal $proposal): void
+    {
+        $this->notifications->sendToUsers(
+            $this->users->getActiveUsersByRole(UserRole::CommitteeMember->value),
+            'Proposal submitted to committee',
+            "A proposal is ready for committee review: {$proposal->title}.",
+            [
+                'type' => NotificationType::ProposalSubmittedToCommittee->value,
+                'entity_type' => 'project_proposal',
+                'entity_id' => $proposal->id,
+                'proposal_id' => $proposal->id,
+                'team_id' => $proposal->project_team_id,
+                'project_idea_id' => $proposal->team?->project_idea_id,
+                'status' => $proposal->status,
+                'action_url' => '/committee/project-proposals',
+            ]
+        );
+    }
+
+    private function teamRecipients(?ProjectTeam $team, ?int $excludeUserId = null): Collection
+    {
+        if (! $team) {
+            return collect();
+        }
+
+        $team->loadMissing(['members.user', 'leader']);
+        $recipients = $team->members->pluck('user')->filter();
+
+        if ($team->leader) {
+            $recipients->push($team->leader);
+        }
+
+        return $recipients
+            ->filter(fn ($user): bool => $user && (int) $user->id !== (int) $excludeUserId)
+            ->unique('id')
+            ->values();
     }
 }
