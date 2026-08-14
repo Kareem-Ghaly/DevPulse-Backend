@@ -7,7 +7,9 @@ use App\Interfaces\ProjectIdeaRepositoryInterface;
 use App\Interfaces\ProjectTeamMemberRepositoryInterface;
 use App\Interfaces\ProjectTeamRepositoryInterface;
 use App\Models\StudentProfile;
+use App\Models\SupervisorProfile;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ProjectIdeaMatchingService extends BaseService
 {
@@ -78,6 +80,119 @@ class ProjectIdeaMatchingService extends BaseService
         ], 'Student matches retrieved successfully');
     }
 
+    public function supervisors(int $projectIdeaId): JsonResponse
+    {
+        $projectIdea = $this->projectIdeas->findById($projectIdeaId);
+
+        if (! $projectIdea) {
+            return $this->errorResponse('Project idea not found.', null, 404);
+        }
+
+        if ((int) $projectIdea->owner_id !== (int) auth()->id()) {
+            return $this->errorResponse('Only the project owner can view supervisor matches.', null, 403);
+        }
+
+        $studentProfile = $projectIdea->owner?->studentProfile;
+
+        if (! $studentProfile) {
+            return $this->errorResponse('Student profile is required before matching supervisors.', null, 422);
+        }
+
+        $studentSkills = $this->trimSkills($studentProfile->skills ?? []);
+        $projectRequiredSkills = $this->trimSkills($projectIdea->required_skills ?? []);
+        $targetSkills = $this->mergeSkills($studentSkills, $projectRequiredSkills);
+
+        if ($targetSkills === []) {
+            return $this->errorResponse('Student skills or required skills are needed before matching supervisors.', [
+                'skills' => ['At least one student skill or project required skill is needed for supervisor matching.'],
+            ], 422);
+        }
+
+        $studentDepartment = $studentProfile->department;
+        $studentDepartmentKey = $this->normalizeText($studentDepartment);
+
+        $supervisors = $this->matchRepository->getMatchableSupervisorProfiles($studentDepartmentKey)
+            ->map(function (SupervisorProfile $profile) use ($studentDepartment, $studentDepartmentKey, $studentSkills, $projectRequiredSkills, $targetSkills): ?array {
+                $supervisorDepartmentKey = $this->normalizeText($profile->department);
+
+                if ($studentDepartmentKey === null || $supervisorDepartmentKey !== $studentDepartmentKey) {
+                    return null;
+                }
+
+                $researchInterests = $this->trimSkills($profile->research_interests ?? []);
+
+                if ($researchInterests === []) {
+                    return null;
+                }
+
+                $researchInterestKeys = $this->normalizeSkills($researchInterests);
+                $matched = [];
+                $missing = [];
+
+                foreach ($targetSkills as $skill) {
+                    $normalizedSkill = $this->normalizeText($skill);
+
+                    if ($normalizedSkill !== null && in_array($normalizedSkill, $researchInterestKeys, true)) {
+                        $matched[] = $skill;
+                    } else {
+                        $missing[] = $skill;
+                    }
+                }
+
+                $percentage = round((count($matched) / count($targetSkills)) * 100);
+
+                if ($percentage <= 0) {
+                    return null;
+                }
+
+                return [
+                    'supervisor' => [
+                        'id' => $profile->user->id,
+                        'name' => $profile->full_name ?? $profile->user->name,
+                        'email' => $profile->user->email,
+                        'academic_title' => $profile->academic_title,
+                        'department' => $profile->department,
+                        'specialization' => $profile->specialization,
+                    ],
+                    'department_match' => true,
+                    'student_department' => $studentDepartment,
+                    'supervisor_department' => $profile->department,
+                    'student_skills' => $studentSkills,
+                    'project_required_skills' => $projectRequiredSkills,
+                    'target_skills' => $targetSkills,
+                    'supervisor_research_interests' => $researchInterests,
+                    'matched_skills' => $matched,
+                    'missing_skills' => $missing,
+                    'match_percentage' => $percentage,
+                ];
+            })
+            ->filter()
+            ->sortByDesc('match_percentage')
+            ->values();
+
+        $perPage = min(100, max(1, (int) request()->query('per_page', 10)));
+        $currentPage = max(1, LengthAwarePaginator::resolveCurrentPage());
+        $currentItems = $supervisors->forPage($currentPage, $perPage)->values()->all();
+
+        $paginated = new LengthAwarePaginator(
+            $currentItems,
+            $supervisors->count(),
+            $perPage,
+            $currentPage,
+            ['path' => LengthAwarePaginator::resolveCurrentPath()]
+        );
+
+        return $this->successResponse([
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ], 'Supervisor matches retrieved successfully');
+    }
+
     private function normalizeSkills(array $skills): array
     {
         return collect($skills)
@@ -98,76 +213,20 @@ class ProjectIdeaMatchingService extends BaseService
             ->all();
     }
 
-    public function supervisors(int $projectIdeaId): JsonResponse
-{
-    $projectIdea = $this->projectIdeas->findById($projectIdeaId);
-
-    if (! $projectIdea) {
-        return $this->errorResponse('Project idea not found.', null, 404);
+    private function mergeSkills(array $studentSkills, array $projectRequiredSkills): array
+    {
+        return collect([...$studentSkills, ...$projectRequiredSkills])
+            ->unique(fn (string $skill): string => mb_strtolower($skill))
+            ->values()
+            ->all();
     }
 
-    $requiredSkills = $this->trimSkills($projectIdea->required_skills ?? []);
+    private function normalizeText(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
 
-    if ($requiredSkills === []) {
-        return $this->errorResponse('Required skills are needed before matching supervisors.', null, 422);
+        return mb_strtolower(trim($value));
     }
-
-    $supervisors = $this->matchRepository->getMatchableSupervisorProfiles()
-        ->map(function (\App\Models\SupervisorProfile $profile) use ($requiredSkills): array {
-            $interests = $this->normalizeSkills($profile->research_interests ?? []);
-            $matched = [];
-            $missing = [];
-
-            foreach ($requiredSkills as $skill) {
-                if (in_array(mb_strtolower($skill), $interests, true)) {
-                    $matched[] = $skill;
-                } else {
-                    $missing[] = $skill;
-                }
-            }
-
-            $percentage = round((count($matched) / count($requiredSkills)) * 100);
-
-            return [
-                'supervisor' => [
-                    'id' => $profile->user->id,
-                    'name' => $profile->full_name ?? $profile->user->name,
-                    'email' => $profile->user->email,
-                    'academic_title' => $profile->academic_title,
-                    'specialization' => $profile->specialization,
-                ],
-                'matched_interests' => $matched,
-                'missing_interests' => $missing,
-                'match_percentage' => $percentage,
-            ];
-        })
-        ->filter(fn($item) => $item['match_percentage'] > 0) 
-        
-        ->sortByDesc('match_percentage')
-        ->values();
-
-
-
-    $perPage = request()->get('per_page', 10);
-    $currentPage = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
-    $currentItems = $supervisors->slice(($currentPage - 1) * $perPage, $perPage)->all();
-
-    $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
-        $currentItems,
-        $supervisors->count(),
-        $perPage,
-        $currentPage,
-        ['path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath()]
-    );
-
-    return $this->successResponse([
-        'data' => $paginated->items(),
-        'meta' => [
-            'current_page' => $paginated->currentPage(),
-            'last_page' => $paginated->lastPage(),
-            'per_page' => $paginated->perPage(),
-            'total' => $paginated->total(),
-        ]
-    ], 'Supervisor matches retrieved successfully');
-}
 }

@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Interfaces\ProjectIdeaRepositoryInterface;
 use App\Models\ProjectIdea;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
 {
@@ -21,14 +22,14 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
             'is_public' => true,
         ])->save();
 
-        return $idea->fresh(['owner']);
+        return $idea->fresh(['owner.studentProfile']);
     }
 
     public function update(ProjectIdea $idea, array $data): ProjectIdea
     {
         $idea->update($data);
 
-        return $idea->fresh(['owner']);
+        return $idea->fresh(['owner.studentProfile']);
     }
 
     public function delete(ProjectIdea $idea): bool
@@ -39,13 +40,14 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
     public function findById(int $id): ?ProjectIdea
     {
         return ProjectIdea::query()
-            ->with('owner')
+            ->with('owner.studentProfile')
             ->find($id);
     }
 
     public function findOwnedByUser(int $ideaId, int $ownerId): ?ProjectIdea
     {
         return ProjectIdea::query()
+            ->with('owner.studentProfile')
             ->where('id', $ideaId)
             ->where('owner_id', $ownerId)
             ->first();
@@ -54,7 +56,7 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
     public function getPublishedIdeas(array $filters = []): LengthAwarePaginator
     {
         return ProjectIdea::query()
-            ->with('owner')
+            ->with('owner.studentProfile')
             ->when($filters['owner_id'] ?? null, function ($query, int $ownerId): void {
                 $query->where(function ($query) use ($ownerId): void {
                     $query->where('owner_id', $ownerId)
@@ -78,23 +80,22 @@ class ProjectIdeaRepository implements ProjectIdeaRepositoryInterface
             'is_public' => true,
         ])->save();
 
-        return $idea->fresh(['owner']);
+        return $idea->fresh(['owner.studentProfile']);
     }
 
     public function markTeamCompleted(ProjectIdea $idea): ProjectIdea
     {
         $idea->forceFill(['status' => 'team_completed'])->save();
 
-        return $idea->fresh(['owner']);
+        return $idea->fresh(['owner.studentProfile']);
     }
 
-    public function getByOwnerId(int $ownerId)
+    public function getByOwnerId(int $ownerId): Collection
     {
         return ProjectIdea::query()
-            ->with('owner')
+            ->with('owner.studentProfile')
             ->where('owner_id', $ownerId)
             ->latest()
             ->get();
     }
-    
 }

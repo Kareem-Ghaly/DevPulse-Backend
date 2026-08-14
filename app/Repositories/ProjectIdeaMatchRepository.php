@@ -2,9 +2,11 @@
 
 namespace App\Repositories;
 
+use App\Enums\UserStatus;
 use App\Interfaces\ProjectIdeaMatchRepositoryInterface;
 use App\Models\ProjectIdeaMatch;
 use App\Models\StudentProfile;
+use App\Models\SupervisorProfile;
 use Illuminate\Support\Collection;
 
 class ProjectIdeaMatchRepository implements ProjectIdeaMatchRepositoryInterface
@@ -48,11 +50,18 @@ class ProjectIdeaMatchRepository implements ProjectIdeaMatchRepositoryInterface
             ->get();
     }
 
-    public function getMatchableSupervisorProfiles(string $department = null): Collection
+    public function getMatchableSupervisorProfiles(?string $normalizedDepartment = null): Collection
     {
-        return \App\Models\SupervisorProfile::query()
+        return SupervisorProfile::query()
             ->with('user')
-            ->when($department, fn($query) => $query->where('department', $department))
+            ->when(
+                $normalizedDepartment,
+                fn ($query): mixed => $query->whereRaw('LOWER(TRIM(department)) = ?', [$normalizedDepartment])
+            )
+            ->whereHas('user', function ($query): void {
+                $query->role('Supervisor')
+                    ->where('status', UserStatus::ACTIVE->value);
+            })
             ->get();
     }
 }
