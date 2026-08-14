@@ -69,6 +69,6 @@ class Task extends Model
 
     public function latestReview(): HasOne
     {
-        return $this->hasOne(TaskReview::class)->latestOfMany('reviewed_at');
+        return $this->hasOne(TaskReview::class)->ofMany('reviewed_at', 'max');
     }
 }

@@ -30,7 +30,15 @@ class TaskService
 
     private const STATUSES = ['backlog', 'todo', 'in_progress', 'done'];
 
-    private const TASK_RELATIONS = ['assignedUser', 'creator', 'completedBy', 'attachments.uploader', 'links.creator'];
+    private const TASK_RELATIONS = [
+        'assignedUser',
+        'creator',
+        'completedBy',
+        'attachments.uploader',
+        'links.creator',
+        'latestReview',
+        'latestReview.supervisor',
+    ];
 
     public function __construct(
         private readonly TaskRepositoryInterface $tasks,
@@ -58,7 +66,7 @@ class TaskService
 
     public function index(ProjectTeam $projectTeam): JsonResponse
     {
-        $tasks = $this->tasks->getForTeam($projectTeam)->groupBy('status');
+        $tasks = $this->tasks->getForTeam($projectTeam)->load(self::TASK_RELATIONS)->groupBy('status');
 
         return $this->successResponse([
             'tasks' => $this->groupTasksByStatus($tasks),

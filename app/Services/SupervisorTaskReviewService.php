@@ -23,7 +23,15 @@ class SupervisorTaskReviewService
 
     private const STATUSES = ['backlog', 'todo', 'in_progress', 'done'];
 
-    private const TASK_RELATIONS = ['assignedUser', 'creator', 'attachments.uploader', 'links.creator', 'latestReview.supervisor'];
+    private const TASK_RELATIONS = [
+        'assignedUser',
+        'creator',
+        'completedBy',
+        'attachments.uploader',
+        'links.creator',
+        'latestReview',
+        'latestReview.supervisor',
+    ];
 
     public function __construct(
         private readonly TaskRepositoryInterface $tasks,
