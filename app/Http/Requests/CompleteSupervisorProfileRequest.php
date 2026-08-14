@@ -17,7 +17,7 @@ class CompleteSupervisorProfileRequest extends FormRequest
             'full_name' => ['required', 'string', 'max:255'],
             'academic_title' => ['required', 'string', 'max:255'],
             'department' => ['required', 'string', 'max:255'],
-            'specialization' => ['required', 'string', 'max:255'],
+            'specialization' => ['nullable', 'string', 'max:255'],
             'office_hours' => ['nullable', 'string'],
             'bio' => ['nullable', 'string'],
             'research_interests' => ['required', 'array'], 
