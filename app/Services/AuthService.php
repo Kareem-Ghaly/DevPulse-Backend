@@ -329,7 +329,7 @@ class AuthService extends BaseService
                 'full_name' => $data['full_name'],
                 'academic_title' => $data['academic_title'],
                 'department' => $data['department'],
-                'specialization' => $data['specialization'],
+                // 'specialization' => $data['specialization'],
                 'office_hours' => $data['office_hours'] ?? null,
                 'bio' => $data['bio'] ?? null,
             ],

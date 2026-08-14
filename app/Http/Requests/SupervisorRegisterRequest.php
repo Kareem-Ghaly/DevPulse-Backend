@@ -19,7 +19,7 @@ class SupervisorRegisterRequest extends FormRequest
             'full_name' => ['required', 'string'],
             'academic_title' => ['required', 'string'],
             'department' => ['required', 'string'],
-            'specialization' => ['required', 'string'],
+            'specialization' => ['nullable', 'string'],
             'office_hours' => ['nullable', 'string'],
             'bio' => ['nullable', 'string'],
             'research_interests' => ['required']
