@@ -40,8 +40,7 @@ class UserResource extends JsonResource
                 'full_name' => $this->supervisorProfile->full_name,
                 'academic_title' => $this->supervisorProfile->academic_title,
                 'department' => $this->supervisorProfile->department,
-                'specialization' => $this->supervisorProfile->specialization,
-                'office_hours' => $this->supervisorProfile->office_hours,
+                'research_interests' => $this->supervisorProfile->research_interests,
                 'bio' => $this->supervisorProfile->bio,
             ] : null,
             'CommitteeMember' => $this->committeeMemberProfile ? [

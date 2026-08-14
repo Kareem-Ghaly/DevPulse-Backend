@@ -247,7 +247,7 @@ class AuthService extends BaseService
         }
 
         $user = $this->users->loadProfile($user);
-
+        
         return $this->successResponse(new UserResource($user), 'Authenticated user retrieved successfully');
     }
 
