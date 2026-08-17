@@ -14,7 +14,7 @@ use App\Models\ProjectIdea;
 use App\Models\StudentProfile;
 use Illuminate\Support\Collection;
 
-class ProjectIdeaMatchingServiceTest extends TestCase
+class StudentMatchingTest extends TestCase
 {
     public function test_student_matching_returns_422_when_required_skills_are_empty(): void
     {
