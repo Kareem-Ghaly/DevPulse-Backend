@@ -117,7 +117,6 @@ class AdminApprovalTest extends TestCase
         ]);
 
         $committeeMember->assignRole(UserRole::CommitteeMember->value);
-
         $response = $this->putJson(
             "/api/admin/users/{$committeeMember->id}/approve"
         );
