@@ -17,12 +17,6 @@ class DemoAccountsSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Role names
-        |--------------------------------------------------------------------------
-        | عدّل هذه القيم فقط إذا كانت أسماء الأدوار في مشروعك مختلفة.
-        */
         $studentRole = 'Student';
         $supervisorRole = 'Supervisor';
         $committeeRole = 'CommitteeMember';
